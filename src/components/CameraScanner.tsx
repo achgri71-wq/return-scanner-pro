@@ -371,7 +371,7 @@ export function CameraScanner({ open, onClose, onDetect, continuous = true }: Ca
       subtitle={manualMode ? t('scan.placeholder') : t('scan.cameraHint')}
       icon={<ScanBarcode size={20} />}
       size="md"
-      className="scanner-modal"
+      className={cx('scanner-modal', !manualMode && 'scanner-fullscreen')}
       footer={
         <>
           {!manualMode && status === 'running' ? (
