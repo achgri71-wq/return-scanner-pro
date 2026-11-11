@@ -50,22 +50,12 @@ function validPayload(overrides: Record<string, unknown> = {}) {
         code: 'ab-0012',
         listId: 'L1',
         listName: 'Casablanca',
-        sessionId: 'S1',
         source: 'camera',
         result: 'accepted',
       },
     ],
     blacklist: [
       { id: 'B1', code: 'bad-code', reason: 'fraud', addedAt: NOW, addedBy: 'admin' },
-    ],
-    sessions: [
-      {
-        id: 'S1',
-        listId: 'L1',
-        listName: 'Casablanca',
-        startedAt: NOW,
-        status: 'open',
-      },
     ],
     employees: [
       { id: 'EM1', name: 'Samir', role: 'operator', active: true, createdAt: NOW, updatedAt: NOW },
@@ -84,14 +74,13 @@ describe('validateBackup', () => {
     expect(preview.valid).toBe(true)
     expect(preview.errors).toEqual([])
     expect(preview.warnings).toEqual([])
-    expect(preview.totalRecords).toBe(8)
+    expect(preview.totalRecords).toBe(7)
     expect(preview.counts).toMatchObject({
       lists: 1,
       parcels: 1,
       registry: 1,
       events: 1,
       blacklist: 1,
-      sessions: 1,
       employees: 1,
       audit: 1,
     })
@@ -120,7 +109,6 @@ describe('validateBackup', () => {
         'missing-registry',
         'missing-events',
         'missing-blacklist',
-        'missing-sessions',
         'missing-employees',
         'missing-audit',
       ]),
@@ -136,16 +124,13 @@ describe('validateBackup', () => {
           { id: 'P2', listId: 'GHOST', code: 'A2', status: 'pending', addedAt: NOW },
         ],
         registry: [{ id: 'R2', listId: 'GHOST', code: 'A2' }],
-        sessions: [{ id: 'S2', listId: 'GHOST', listName: 'Ghost', startedAt: NOW }],
       }),
     )
     expect(preview.valid).toBe(true)
     expect(preview.warnings).toContain('invalid-parcels-skipped')
     expect(preview.warnings).toContain('invalid-registry-skipped')
-    expect(preview.warnings).toContain('invalid-sessions-skipped')
     expect(preview.data?.parcels.map((item) => item.id)).toEqual(['P1'])
     expect(preview.data?.registry).toEqual([])
-    expect(preview.data?.sessions).toEqual([])
   })
 
   it('deduplicates ids and codes, and normalises defaults', () => {
@@ -188,13 +173,9 @@ describe('validateBackup', () => {
     expect(preview.warnings).toContain('invalid-lists-skipped')
   })
 
-  it('warns about multiple open sessions and orphan events', () => {
+  it('warns about orphan events', () => {
     const preview = validateBackup(
       validPayload({
-        sessions: [
-          { id: 'S1', listId: 'L1', listName: 'A', startedAt: NOW, status: 'open' },
-          { id: 'S2', listId: 'L1', listName: 'A', startedAt: NOW, status: 'open' },
-        ],
         events: [
           {
             id: 'E1',
@@ -208,7 +189,6 @@ describe('validateBackup', () => {
         ],
       }),
     )
-    expect(preview.warnings).toContain('multiple-open-sessions')
     expect(preview.warnings).toContain('orphan-events')
   })
 

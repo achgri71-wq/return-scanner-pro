@@ -1,4 +1,4 @@
-import 'fake-indexeddb/auto'
+﻿import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { AppData } from '../types'
 import { defaultSettings, useStore } from './useStore'
@@ -11,7 +11,6 @@ const EMPTY: AppData = {
   registry: [],
   events: [],
   blacklist: [],
-  sessions: [],
   employees: [],
   audit: [],
 }
@@ -44,11 +43,9 @@ function createList(name: string, codes: string[]): string {
   return result.summary!.listId
 }
 
-function start(listId: string): string {
-  const result = useStore.getState().startSession(listId)
+function activate(listId: string): void {
+  const result = useStore.getState().switchList(listId)
   expect(result.ok).toBe(true)
-  expect(result.session).toBeDefined()
-  return result.session!.id
 }
 
 function codeRows(code: string, listId?: string) {
@@ -106,7 +103,7 @@ describe('list import and isolation', () => {
   it('keeps lists isolated from each other', () => {
     const a = createList('Liste A', ['A-001'])
     const b = createList('Liste B', ['B-001'])
-    start(a)
+    activate(a)
     const outcome = useStore.getState().scan('B-001', 'manual')
     expect(outcome.status).toBe('other-list')
     expect(outcome.otherListId).toBe(b)
@@ -120,7 +117,7 @@ describe('list import and isolation', () => {
 describe('scanning acceptance behaviour', () => {
   it('accepts once, then detects the duplicate without adding rows', () => {
     const listId = createList('Scan list', ['001', '002'])
-    start(listId)
+    activate(listId)
 
     const accepted = useStore.getState().scan('001', 'camera')
     expect(accepted.status).toBe('accepted')
@@ -155,7 +152,7 @@ describe('scanning acceptance behaviour', () => {
 
   it('is idempotent for repeated scan ids so a code is never counted twice', () => {
     const listId = createList('Scan list', ['002'])
-    start(listId)
+    activate(listId)
 
     const first = useStore.getState().scan('002', 'hid', 'scan-request-1')
     const seqAfterFirst = useStore.getState().lastOutcomeSeq
@@ -171,7 +168,7 @@ describe('scanning acceptance behaviour', () => {
 
   it('accepts manual entry with lowercase and surrounding whitespace', () => {
     const listId = createList('Scan list', ['ab-0012'])
-    start(listId)
+    activate(listId)
     const outcome = useStore.getState().scan('  ab-0012  ', 'manual')
     expect(outcome.status).toBe('accepted')
     expect(outcome.code).toBe('AB-0012')
@@ -183,7 +180,7 @@ describe('scanning acceptance behaviour', () => {
   it('rejects unrequested and other-list codes as distinct outcomes', () => {
     const a = createList('Liste A', ['A-001'])
     createList('Liste B', ['B-001'])
-    start(a)
+    activate(a)
 
     const unknown = useStore.getState().scan('UNKNOWN-99', 'manual')
     expect(unknown.status).toBe('not-required')
@@ -200,7 +197,7 @@ describe('scanning acceptance behaviour', () => {
 
   it('refuses invalid codes without touching the registry', () => {
     const listId = createList('Scan list', ['001'])
-    start(listId)
+    activate(listId)
     expect(useStore.getState().scan('A', 'manual').status).toBe('invalid')
     expect(useStore.getState().scan('   ', 'camera').status).toBe('invalid')
     expect(useStore.getState().registry).toHaveLength(0)
@@ -209,7 +206,7 @@ describe('scanning acceptance behaviour', () => {
 
   it('updates attempts without creating rows for repeated rejections and blacklist hits', () => {
     const listId = createList('Scan list', ['A-001'])
-    start(listId)
+    activate(listId)
     useStore.getState().addBlacklist([{ code: 'B-999', reason: 'blocked' }])
 
     useStore.getState().scan('NOPE-1', 'manual')
@@ -236,7 +233,7 @@ describe('blacklist priority', () => {
   it('blocks a pending active-list code and a code from another list', () => {
     const a = createList('Liste A', ['A-001', 'A-002'])
     const b = createList('Liste B', ['B-001', 'B-002'])
-    start(a)
+    activate(a)
 
     const added = useStore.getState().addBlacklist([
       { code: 'a-001', reason: 'fraud' },
@@ -265,8 +262,8 @@ describe('blacklist priority', () => {
   })
 
   it('keeps priority over an already-returned code', () => {
-    const listId = createList('Liste A', ['A-001'])
-    start(listId)
+    const listId = createList('Liste A', ['A-001', 'A-002'])
+    activate(listId)
     expect(useStore.getState().scan('A-001', 'manual').status).toBe('accepted')
 
     useStore.getState().addBlacklist([{ code: 'A-001', reason: 'chargeback' }])
@@ -277,77 +274,57 @@ describe('blacklist priority', () => {
   })
 })
 
-describe('sessions, reports and list closure', () => {
-  it('blocks scanning when the list is closed or when no session is open', () => {
+describe('direct scanning and list closure', () => {
+  it('scans directly without any session and records events', () => {
+    const listId = createList('Direct', ['001', '002', '003'])
+    activate(listId)
+
+    const accepted = useStore.getState().scan('001', 'manual')
+    expect(accepted.status).toBe('accepted')
+    useStore.getState().scan('001', 'manual')
+    useStore.getState().scan('NOPE', 'manual')
+
+    const state = useStore.getState()
+    expect(state.events).toHaveLength(3)
+    expect(
+      state.events.every((event) => (event as unknown as { sessionId?: string }).sessionId === undefined),
+    ).toBe(true)
+    const parcel = state.parcels.find((item) => item.code === '001')
+    expect(parcel?.status).toBe('returned')
+    expect(parcel?.returnedBy).toBeTruthy()
+    expect(codeRows('001')[0]?.attempts).toBe(2)
+  })
+
+  it('completes the list automatically when every parcel is returned', () => {
     const a = createList('Liste A', ['A-001'])
-    start(a)
-    const closed = useStore.getState().closeSession()
-    expect(closed.ok).toBe(true)
-    expect(closed.report?.listTotal).toBe(1)
+    activate(a)
+    expect(useStore.getState().scan('A-001', 'manual').status).toBe('accepted')
 
     const list = useStore.getState().lists.find((item) => item.id === a)
     expect(list?.status).toBe('completed')
+
     expect(useStore.getState().scan('A-001', 'manual').status).toBe('list-closed')
 
     const reopened = useStore.getState().reopenList(a)
     expect(reopened.ok).toBe(true)
-    expect(useStore.getState().lists.find((item) => item.id === a)?.status).toBe('active')
-    expect(useStore.getState().scan('A-001', 'manual').status).toBe('no-session')
-
-    start(a)
-    expect(useStore.getState().scan('A-001', 'manual').status).toBe('accepted')
+    expect(useStore.getState().scan('A-001', 'manual').status).toBe('duplicate')
   })
 
-  it('builds a correct session report on close', () => {
-    const listId = createList('Rapport', ['001', '002', '003'])
-    start(listId)
-    useStore.getState().scan('001', 'manual')
-    useStore.getState().scan('002', 'manual')
-    useStore.getState().scan('001', 'manual')
-    useStore.getState().scan('NOPE', 'manual')
-
-    const result = useStore.getState().closeSession()
-    expect(result.ok).toBe(true)
-    expect(result.report).toMatchObject({
-      listName: 'Rapport',
-      listTotal: 3,
-      listReturned: 2,
-      listRemaining: 1,
-      sessionScans: 4,
-      sessionAccepted: 2,
-      unrequested: 1,
-      duplicateAttempts: 1,
-      blacklistedAttempts: 0,
-      otherListAttempts: 0,
-    })
-    expect(result.report?.completion).toBeCloseTo(2 / 3)
-
-    const session = useStore.getState().sessions[0]
-    expect(session?.status).toBe('closed')
-    expect(session?.report).toEqual(result.report)
-    expect(session?.reportHistory).toHaveLength(1)
-    expect(useStore.getState().lists.find((item) => item.id === listId)?.status).toBe('completed')
-  })
-
-  it('switching lists closes the current session and preserves its report', () => {
+  it('switching lists is immediate and keeps scanning working on the new list', () => {
     const a = createList('Liste A', ['A-001'])
     const b = createList('Liste B', ['B-001'])
-    start(a)
+    activate(a)
     useStore.getState().scan('A-001', 'manual')
 
     const switched = useStore.getState().switchList(b)
     expect(switched.ok).toBe(true)
     expect(useStore.getState().settings.activeListId).toBe(b)
-    expect(useStore.getState().sessions.filter((session) => session.status === 'open')).toHaveLength(
-      0,
-    )
-    expect(useStore.getState().sessions.find((session) => session.listId === a)?.report).toBeDefined()
-    expect(useStore.getState().scan('B-001', 'manual').status).toBe('no-session')
+    expect(useStore.getState().scan('B-001', 'manual').status).toBe('accepted')
   })
 
   it('keeps remaining statistics accurate after accepted and duplicate scans', () => {
     const listId = createList('Stats', ['001', '002', '003'])
-    start(listId)
+    activate(listId)
     useStore.getState().scan('001', 'manual')
     useStore.getState().scan('001', 'manual')
     const state = useStore.getState()
@@ -359,10 +336,8 @@ describe('sessions, reports and list closure', () => {
 describe('replace import and correction', () => {
   it('replaces list contents but keeps the event log and audit history', () => {
     const listId = createList('Replace me', ['001', '002'])
-    start(listId)
+    activate(listId)
     useStore.getState().scan('001', 'manual')
-    useStore.getState().closeSession()
-    useStore.getState().reopenList(listId)
 
     const before = useStore.getState()
     const oldParcelIds = before.parcels.map((parcel) => parcel.id)
@@ -393,7 +368,7 @@ describe('replace import and correction', () => {
 
   it('protects return correction with a reason and the admin PIN', () => {
     const listId = createList('Corrections', ['001'])
-    start(listId)
+    activate(listId)
     const accepted = useStore.getState().scan('001', 'manual')
     const parcelId = accepted.parcelId!
     expect(parcelId).toBeDefined()
@@ -430,7 +405,7 @@ describe('replace import and correction', () => {
 describe('offline persistence', () => {
   it('persists scans, registry, blacklist and audit to IndexedDB', async () => {
     const listId = createList('Offline', ['001', '002'])
-    start(listId)
+    activate(listId)
     useStore.getState().scan('001', 'manual')
     useStore.getState().addBlacklist([{ code: '002', reason: 'blocked' }])
     await settle()

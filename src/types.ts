@@ -12,11 +12,9 @@ export type ScanOutcomeStatus =
   | 'invalid'
   | 'no-list'
   | 'list-closed'
-  | 'no-session'
   | 'ignored'
 
 export type RegistryStatus = 'required-returned' | 'not-required' | 'return-prohibited'
-export type SessionStatus = 'open' | 'closed'
 export type EmployeeRole = 'operator' | 'admin'
 
 export interface ReturnList {
@@ -42,7 +40,6 @@ export interface ReturnParcel {
   source: ListSource
   returnedAt?: string
   returnedBy?: string
-  sessionId?: string
 }
 
 export interface ScannedCode {
@@ -54,8 +51,6 @@ export interface ScannedCode {
   lastAttemptAt: string
   attempts: number
   lastResult: ScanResultKind
-  firstSessionId?: string
-  lastSessionId?: string
   returnedAt?: string
   blacklistReason?: string
   otherListId?: string
@@ -68,9 +63,6 @@ export interface ScanEvent {
   code: string
   listId: string
   listName: string
-  sessionId?: string
-  employeeId?: string
-  employeeName?: string
   source: ScanSource
   result: ScanResultKind
   detail?: string
@@ -96,40 +88,6 @@ export interface Employee {
   updatedAt: string
 }
 
-export interface SessionReportSnapshot {
-  generatedAt: string
-  listId: string
-  listName: string
-  sessionId: string
-  listTotal: number
-  listReturned: number
-  listRemaining: number
-  completion: number
-  sessionScans: number
-  sessionAccepted: number
-  unrequested: number
-  blacklistedAttempts: number
-  duplicateAttempts: number
-  otherListAttempts: number
-  startedAt: string
-  endedAt: string
-  employeeName?: string
-}
-
-export interface ScanSession {
-  id: string
-  listId: string
-  listName: string
-  employeeId?: string
-  employeeName?: string
-  startedAt: string
-  endedAt?: string
-  status: SessionStatus
-  lastActivityAt?: string
-  report?: SessionReportSnapshot
-  reportHistory?: SessionReportSnapshot[]
-}
-
 export type AuditAction =
   | 'list-create'
   | 'list-rename'
@@ -140,9 +98,6 @@ export type AuditAction =
   | 'list-close'
   | 'list-reopen'
   | 'list-archive'
-  | 'session-start'
-  | 'session-close'
-  | 'session-reopen'
   | 'return-correction'
   | 'blacklist-add'
   | 'blacklist-update'
@@ -189,7 +144,6 @@ export interface AppData {
   registry: ScannedCode[]
   events: ScanEvent[]
   blacklist: BlacklistEntry[]
-  sessions: ScanSession[]
   employees: Employee[]
   audit: AuditEntry[]
 }

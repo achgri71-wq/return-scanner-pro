@@ -14,7 +14,6 @@ import type {
   ReturnParcel,
   ScanEvent,
   ScanOutcome,
-  ScanSession,
   ScanSource,
   ScannedCode,
   Settings,
@@ -22,7 +21,6 @@ import type {
 import * as db from '../lib/db'
 import { normalizeCode, isValidCode } from '../lib/codes'
 import { buildScanIndex, decideScan, type ScanIndex } from '../lib/scan'
-import { buildSessionReport } from '../lib/stats'
 import { playFeedback } from '../lib/feedback'
 import { clamp, uid } from '../lib/utils'
 import { validateBackup, type BackupPreview } from '../lib/backup'
@@ -86,14 +84,6 @@ export interface ListResult extends SimpleResult {
   list?: ReturnList
 }
 
-export interface SessionResult extends SimpleResult {
-  session?: ScanSession
-}
-
-export interface CloseResult extends SimpleResult {
-  report?: ScanSession['report']
-}
-
 export interface ImportResult extends SimpleResult {
   summary?: ImportSummary
 }
@@ -139,9 +129,6 @@ interface StoreState extends AppData {
   importCodes: (input: ImportCodesInput) => ImportResult
   addCodesToList: (listId: string, codes: string[]) => ImportResult
   switchList: (listId: string) => SimpleResult
-  startSession: (listId?: string, employeeId?: string) => SessionResult
-  closeSession: (sessionId?: string) => CloseResult
-  reopenSession: (sessionId: string) => SessionResult
   reopenList: (listId: string) => SimpleResult
   archiveList: (listId: string) => SimpleResult
   renameList: (listId: string, name: string) => SimpleResult
@@ -369,48 +356,6 @@ export const useStore = create<StoreState>((set, get) => {
     lang: state.settings.lang,
   })
 
-  const closeSessionInternal = (session: ScanSession, now: string) => {
-    const state = get()
-    const list = state.lists.find((item) => item.id === session.listId)
-    if (!list) return null
-    const report = buildSessionReport(session, list, state, now)
-    const updatedSession: ScanSession = {
-      ...session,
-      status: 'closed',
-      endedAt: now,
-      lastActivityAt: now,
-      report,
-      reportHistory: [...(session.reportHistory ?? []), report],
-    }
-    const updatedList: ReturnList = {
-      ...list,
-      status: 'completed',
-      closedAt: now,
-      updatedAt: now,
-    }
-    const sessionAudit = audit(
-      state,
-      'session-close',
-      `${list.name}: ${report.listReturned}/${report.listTotal} (${Math.round(report.completion * 100)}%)`,
-      session.id,
-    )
-    const listAudit = audit(state, 'list-close', list.name, list.id)
-
-    set((current) => ({
-      sessions: current.sessions.map((item) =>
-        item.id === session.id ? updatedSession : item,
-      ),
-      lists: current.lists.map((item) => (item.id === list.id ? updatedList : item)),
-      audit: [listAudit, sessionAudit, ...current.audit],
-    }))
-    persist({
-      sessions: [updatedSession],
-      lists: [updatedList],
-      audit: [sessionAudit, listAudit],
-    })
-    return report
-  }
-
   const updateListAfterScan = (list: ReturnList, now: string): ReturnList => ({
     ...list,
     status: list.status === 'new' ? 'active' : list.status,
@@ -425,7 +370,6 @@ export const useStore = create<StoreState>((set, get) => {
     registry: [],
     events: [],
     blacklist: [],
-    sessions: [],
     employees: [],
     audit: [],
     settings: loadSettings(),
@@ -439,34 +383,10 @@ export const useStore = create<StoreState>((set, get) => {
         try {
           const data = await db.loadAll()
           const settings = get().settings
-          const listIds = new Set(data.lists.map((list) => list.id))
-          const openSessions = data.sessions
-            .filter((session) => session.status === 'open' && listIds.has(session.listId))
-            .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
-          const keepOpen = openSessions[0]
-          const now = new Date().toISOString()
-          const fixedSessions = data.sessions.map((session) =>
-            session.status === 'open' && session.id !== keepOpen?.id
-              ? { ...session, status: 'closed' as const, endedAt: now }
-              : session,
-          )
-          const fixedLists = data.lists.map((list) => {
-            if (list.status === 'completed' || list.status === 'archived') {
-              const hasOpen = fixedSessions.some(
-                (session) => session.status === 'open' && session.listId === list.id,
-              )
-              if (hasOpen) {
-                return { ...list, status: 'active' as const, closedAt: undefined, archivedAt: undefined }
-              }
-            }
-            return list
-          })
-
           let activeListId = settings.activeListId ?? null
-          if (keepOpen) activeListId = keepOpen.listId
-          else if (
+          if (
             !activeListId ||
-            !fixedLists.some(
+            !data.lists.some(
               (list) =>
                 list.id === activeListId &&
                 (list.status === 'new' || list.status === 'active'),
@@ -483,22 +403,7 @@ export const useStore = create<StoreState>((set, get) => {
               : null
           const nextSettings = { ...settings, activeListId, currentEmployeeId }
           persistSettings(nextSettings)
-          const nextData: AppData = { ...data, lists: fixedLists, sessions: fixedSessions }
-          set({ ...nextData, settings: nextSettings, ready: true })
-          if (
-            fixedSessions.some(
-              (session, index) => session.status !== data.sessions[index]?.status,
-            ) ||
-            fixedLists.some((list, index) => list.status !== data.lists[index]?.status)
-          ) {
-            const changedSessions = fixedSessions.filter(
-              (session, index) => session.status !== data.sessions[index]?.status,
-            )
-            const changedLists = fixedLists.filter(
-              (list, index) => list.status !== data.lists[index]?.status,
-            )
-            persist({ sessions: changedSessions, lists: changedLists })
-          }
+          set({ ...data, settings: nextSettings, ready: true })
         } catch (error) {
           set({
             ready: true,
@@ -583,12 +488,6 @@ export const useStore = create<StoreState>((set, get) => {
         if (!list) return { ok: false, error: 'list-not-found' }
         if (list.status === 'completed' || list.status === 'archived') {
           return { ok: false, error: 'list-closed' }
-        }
-        if (mode === 'replace') {
-          const hasOpenSession = state.sessions.some(
-            (session) => session.status === 'open' && session.listId === list?.id,
-          )
-          if (hasOpenSession) return { ok: false, error: 'session-open' }
         }
       }
 
@@ -716,123 +615,8 @@ export const useStore = create<StoreState>((set, get) => {
       }
       if (state.settings.activeListId === listId) return { ok: true }
 
-      const open = state.sessions.find((session) => session.status === 'open')
-      if (open && open.listId !== listId) {
-        const closed = get().closeSession(open.id)
-        if (!closed.ok) return { ok: false, error: closed.error ?? 'close-failed' }
-      }
       get().setSettings({ activeListId: listId })
       return { ok: true }
-    },
-
-    startSession: (listId, employeeId) => {
-      const state = get()
-      const targetId = listId ?? state.settings.activeListId
-      if (!targetId) return { ok: false, error: 'no-list' }
-      let list = state.lists.find((item) => item.id === targetId)
-      if (!list) return { ok: false, error: 'list-not-found' }
-      if (list.status === 'completed' || list.status === 'archived') {
-        return { ok: false, error: 'list-closed' }
-      }
-      const existing = state.sessions.find(
-        (session) => session.status === 'open' && session.listId === targetId,
-      )
-      if (existing) {
-        get().setSettings({ activeListId: targetId })
-        return { ok: true, session: existing }
-      }
-      const otherOpen = state.sessions.find((session) => session.status === 'open')
-      if (otherOpen) {
-        const closed = get().closeSession(otherOpen.id)
-        if (!closed.ok) return { ok: false, error: closed.error ?? 'close-failed' }
-      }
-      list = get().lists.find((item) => item.id === targetId)
-      if (!list) return { ok: false, error: 'list-not-found' }
-
-      const employeeChoice =
-        state.employees.find(
-          (employee) =>
-            employee.id === (employeeId ?? state.settings.currentEmployeeId) && employee.active,
-        ) ?? state.employees.find((employee) => employee.id === employeeId)
-      const now = new Date().toISOString()
-      const session: ScanSession = {
-        id: readableId('SES', new Set(state.sessions.map((item) => item.id))),
-        listId: list.id,
-        listName: list.name,
-        employeeId: employeeChoice?.id,
-        employeeName: employeeChoice?.name,
-        startedAt: now,
-        status: 'open',
-        lastActivityAt: now,
-      }
-      const updatedList: ReturnList = {
-        ...list,
-        status: 'active',
-        updatedAt: now,
-        closedAt: undefined,
-        archivedAt: undefined,
-      }
-      const entry = audit(state, 'session-start', list.name, session.id)
-      set((current) => ({
-        sessions: [session, ...current.sessions],
-        lists: current.lists.map((item) => (item.id === list?.id ? updatedList : item)),
-        audit: [entry, ...current.audit],
-      }))
-      get().setSettings({ activeListId: list.id })
-      persist({ sessions: [session], lists: [updatedList], audit: [entry] })
-      return { ok: true, session }
-    },
-
-    closeSession: (sessionId) => {
-      const state = get()
-      const session = sessionId
-        ? state.sessions.find((item) => item.id === sessionId && item.status === 'open')
-        : state.sessions.find((item) => item.status === 'open')
-      if (!session) return { ok: false, error: 'no-session' }
-      const report = closeSessionInternal(session, new Date().toISOString())
-      if (!report) return { ok: false, error: 'list-not-found' }
-      return { ok: true, report }
-    },
-
-    reopenSession: (sessionId) => {
-      const state = get()
-      const target = state.sessions.find((item) => item.id === sessionId)
-      if (!target) return { ok: false, error: 'session-not-found' }
-      const list = state.lists.find((item) => item.id === target.listId)
-      if (!list) return { ok: false, error: 'list-not-found' }
-      if (target.status === 'open') return { ok: true, session: target }
-
-      const otherOpen = state.sessions.find(
-        (session) => session.status === 'open' && session.id !== target.id,
-      )
-      if (otherOpen) {
-        const closed = get().closeSession(otherOpen.id)
-        if (!closed.ok) return { ok: false, error: closed.error ?? 'close-failed' }
-      }
-      const current = get()
-      const now = new Date().toISOString()
-      const reopened: ScanSession = {
-        ...target,
-        status: 'open',
-        endedAt: undefined,
-        lastActivityAt: now,
-      }
-      const updatedList: ReturnList = {
-        ...list,
-        status: 'active',
-        closedAt: undefined,
-        archivedAt: undefined,
-        updatedAt: now,
-      }
-      const entry = audit(current, 'session-reopen', list.name, target.id)
-      set((stateNow) => ({
-        sessions: stateNow.sessions.map((item) => (item.id === target.id ? reopened : item)),
-        lists: stateNow.lists.map((item) => (item.id === list.id ? updatedList : item)),
-        audit: [entry, ...stateNow.audit],
-      }))
-      get().setSettings({ activeListId: list.id })
-      persist({ sessions: [reopened], lists: [updatedList], audit: [entry] })
-      return { ok: true, session: reopened }
     },
 
     reopenList: (listId) => {
@@ -884,18 +668,12 @@ export const useStore = create<StoreState>((set, get) => {
       if (nameTaken(state.lists, clean, listId)) return { ok: false, error: 'duplicate-name' }
       const now = new Date().toISOString()
       const updated: ReturnList = { ...list, name: clean, updatedAt: now }
-      const sessions = state.sessions
-        .filter((session) => session.listId === listId)
-        .map((session) => ({ ...session, listName: clean }))
       const entry = audit(state, 'list-rename', `${list.name} → ${clean}`, listId, list.name, clean)
       set((current) => ({
         lists: current.lists.map((item) => (item.id === listId ? updated : item)),
-        sessions: current.sessions.map((session) =>
-          session.listId === listId ? { ...session, listName: clean } : session,
-        ),
         audit: [entry, ...current.audit],
       }))
-      persist({ lists: [updated], sessions, audit: [entry] })
+      persist({ lists: [updated], audit: [entry] })
       return { ok: true }
     },
 
@@ -950,13 +728,6 @@ export const useStore = create<StoreState>((set, get) => {
         return remember({ ...base, status: 'list-closed', listId: list.id, listName: list.name })
       }
 
-      const session = state.sessions.find(
-        (item) => item.status === 'open' && item.listId === activeListId,
-      )
-      if (!session) {
-        return remember({ ...base, status: 'no-session', listId: list.id, listName: list.name })
-      }
-
       const cache = scanCacheFor(state)
       const decision = decideScan(code, cache.index)
       if (decision.kind === 'no-list') return remember({ ...base, status: 'no-list' })
@@ -976,7 +747,6 @@ export const useStore = create<StoreState>((set, get) => {
             ...existingRegistry,
             lastAttemptAt: now,
             attempts: existingRegistry.attempts + 1,
-            lastSessionId: session.id,
             ...patch,
           }
         }
@@ -989,8 +759,6 @@ export const useStore = create<StoreState>((set, get) => {
           lastAttemptAt: now,
           attempts: 1,
           lastResult: 'not-required',
-          firstSessionId: session.id,
-          lastSessionId: session.id,
           ...patch,
         }
       }
@@ -1004,16 +772,10 @@ export const useStore = create<StoreState>((set, get) => {
         code,
         listId: list.id,
         listName: list.name,
-        sessionId: session.id,
-        employeeId: session.employeeId,
-        employeeName: session.employeeName,
         source,
         result,
         detail,
       })
-
-      const nextList = updateListAfterScan(list, now)
-      const nextSession: ScanSession = { ...session, lastActivityAt: now }
 
       if (decision.kind === 'blacklisted') {
         const registry = upsertRegistry({
@@ -1027,9 +789,8 @@ export const useStore = create<StoreState>((set, get) => {
             ? current.registry.map((item) => (item.id === registry.id ? registry : item))
             : [registry, ...current.registry],
           events: [event, ...current.events],
-          lists: current.lists.map((item) => (item.id === list.id ? nextList : item)),
-          sessions: current.sessions.map((item) =>
-            item.id === session.id ? nextSession : item,
+          lists: current.lists.map((item) =>
+            item.id === list.id ? updateListAfterScan(list, now) : item,
           ),
           lastOutcome: {
             ...base,
@@ -1044,8 +805,7 @@ export const useStore = create<StoreState>((set, get) => {
         persist({
           registry: [registry],
           events: [event],
-          lists: [nextList],
-          sessions: [nextSession],
+          lists: [updateListAfterScan(list, now)],
         })
         playFeedback('warning', soundOptions(state))
         const outcome: ScanOutcome = {
@@ -1065,9 +825,15 @@ export const useStore = create<StoreState>((set, get) => {
           ...decision.parcel,
           status: 'returned',
           returnedAt: now,
-          returnedBy: session.employeeName ?? actorFor(state),
-          sessionId: session.id,
+          returnedBy: actorFor(state),
         }
+        const pendingLeft = state.parcels.filter(
+          (item) => item.listId === list.id && item.status === 'pending' && item.id !== parcel.id,
+        ).length
+        const nextList =
+          pendingLeft === 0
+            ? { ...updateListAfterScan(list, now), status: 'completed' as const, closedAt: now }
+            : updateListAfterScan(list, now)
         const registry = upsertRegistry({
           status: 'required-returned',
           lastResult: 'accepted',
@@ -1084,9 +850,6 @@ export const useStore = create<StoreState>((set, get) => {
             : [registry, ...current.registry],
           events: [event, ...current.events],
           lists: current.lists.map((item) => (item.id === list.id ? nextList : item)),
-          sessions: current.sessions.map((item) =>
-            item.id === session.id ? nextSession : item,
-          ),
           lastOutcome: {
             ...base,
             status: 'accepted',
@@ -1102,7 +865,6 @@ export const useStore = create<StoreState>((set, get) => {
           registry: [registry],
           events: [event],
           lists: [nextList],
-          sessions: [nextSession],
         })
         playFeedback('success', soundOptions(state))
         const outcome: ScanOutcome = {
@@ -1132,9 +894,8 @@ export const useStore = create<StoreState>((set, get) => {
             ? current.registry.map((item) => (item.id === registry.id ? registry : item))
             : [registry, ...current.registry],
           events: [event, ...current.events],
-          lists: current.lists.map((item) => (item.id === list.id ? nextList : item)),
-          sessions: current.sessions.map((item) =>
-            item.id === session.id ? nextSession : item,
+          lists: current.lists.map((item) =>
+            item.id === list.id ? updateListAfterScan(list, now) : item,
           ),
           lastOutcome: {
             ...base,
@@ -1149,8 +910,7 @@ export const useStore = create<StoreState>((set, get) => {
         persist({
           registry: [registry],
           events: [event],
-          lists: [nextList],
-          sessions: [nextSession],
+          lists: [updateListAfterScan(list, now)],
         })
         playFeedback('duplicate', soundOptions(state))
         const outcome: ScanOutcome = {
@@ -1188,16 +948,16 @@ export const useStore = create<StoreState>((set, get) => {
           ? current.registry.map((item) => (item.id === registry.id ? registry : item))
           : [registry, ...current.registry],
         events: [event, ...current.events],
-        lists: current.lists.map((item) => (item.id === list.id ? nextList : item)),
-        sessions: current.sessions.map((item) => (item.id === session.id ? nextSession : item)),
+        lists: current.lists.map((item) =>
+          item.id === list.id ? updateListAfterScan(list, now) : item,
+        ),
         lastOutcome: outcome,
         lastOutcomeSeq: current.lastOutcomeSeq + 1,
       }))
       persist({
         registry: [registry],
         events: [event],
-        lists: [nextList],
-        sessions: [nextSession],
+        lists: [updateListAfterScan(list, now)],
       })
       playFeedback('rejection', soundOptions(state))
       processedScans.set(requestId, { outcome, at: Date.now() })
@@ -1393,8 +1153,11 @@ export const useStore = create<StoreState>((set, get) => {
         status: 'pending',
         returnedAt: undefined,
         returnedBy: undefined,
-        sessionId: undefined,
       }
+      const reopenedList: ReturnList | undefined =
+        list && (list.status === 'completed' || list.status === 'archived')
+          ? { ...list, status: 'active', closedAt: undefined, archivedAt: undefined, updatedAt: now }
+          : undefined
       const entry = audit(
         state,
         'return-correction',
@@ -1406,11 +1169,15 @@ export const useStore = create<StoreState>((set, get) => {
       )
       set((current) => ({
         parcels: current.parcels.map((item) => (item.id === parcel.id ? updated : item)),
+        lists: reopenedList
+          ? current.lists.map((item) => (item.id === parcel.listId ? reopenedList : item))
+          : current.lists,
         registry: current.registry.filter((item) => item.id !== registry?.id),
         audit: [entry, ...current.audit],
       }))
       persist({
         parcels: [updated],
+        lists: reopenedList ? [reopenedList] : undefined,
         deleteRegistry: registry ? [registry.id] : undefined,
         audit: [entry],
       })
@@ -1428,7 +1195,6 @@ export const useStore = create<StoreState>((set, get) => {
         registry: state.registry,
         events: state.events,
         blacklist: state.blacklist,
-        sessions: state.sessions,
         employees: state.employees,
         audit: state.audit,
         settings: state.settings,
@@ -1455,23 +1221,9 @@ export const useStore = create<StoreState>((set, get) => {
       }
       const state = get()
       const incoming = preview.data
-      const now = new Date().toISOString()
 
       if (mode === 'replace') {
-        const openSessions = incoming.sessions
-          .filter((session) => session.status === 'open')
-          .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
-        const keepOpen = openSessions[0]
-        const sessions = incoming.sessions.map((session) =>
-          session.status === 'open' && session.id !== keepOpen?.id
-            ? { ...session, status: 'closed' as const, endedAt: now }
-            : session,
-        )
-        const lists = incoming.lists.map((list) =>
-          keepOpen?.listId === list.id
-            ? { ...list, status: 'active' as const, closedAt: undefined, archivedAt: undefined }
-            : list,
-        )
+        const lists = incoming.lists
         const entry = audit(
           state,
           'backup-import',
@@ -1486,13 +1238,12 @@ export const useStore = create<StoreState>((set, get) => {
           registry: incoming.registry,
           events: incoming.events,
           blacklist: incoming.blacklist,
-          sessions,
           employees: incoming.employees,
           audit: [entry, ...incoming.audit],
         }
         let activeListId = preview.settings?.activeListId ?? null
         if (!activeListId || !lists.some((list) => list.id === activeListId)) {
-          activeListId = keepOpen?.listId ?? null
+          activeListId = null
         }
         const currentEmployeeId =
           preview.settings?.currentEmployeeId &&
@@ -1531,7 +1282,6 @@ export const useStore = create<StoreState>((set, get) => {
       )
       const existingEventIds = new Set(state.events.map((item) => item.id))
       const existingBlacklistCodes = new Set(state.blacklist.map((item) => item.code))
-      const existingSessionIds = new Set(state.sessions.map((item) => item.id))
       const existingEmployeeIds = new Set(state.employees.map((item) => item.id))
       const existingAuditIds = new Set(state.audit.map((item) => item.id))
 
@@ -1559,9 +1309,6 @@ export const useStore = create<StoreState>((set, get) => {
       const addedBlacklist = incoming.blacklist.filter(
         (entry) => !existingBlacklistCodes.has(entry.code),
       )
-      const addedSessions = incoming.sessions.filter(
-        (session) => allowedLists.has(session.listId) && !existingSessionIds.has(session.id),
-      )
       const addedEmployees = incoming.employees.filter(
         (employee) => !existingEmployeeIds.has(employee.id),
       )
@@ -1571,23 +1318,6 @@ export const useStore = create<StoreState>((set, get) => {
         'backup-import',
         `Fusion: +${addedLists.length} listes, +${addedParcels.length} colis, +${addedRegistry.length} registre`,
       )
-      const openSessions = [...state.sessions, ...addedSessions]
-        .filter((session) => session.status === 'open')
-        .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
-      const keepOpen = openSessions[0]
-      const fixedExistingSessions = state.sessions.map((session) =>
-        session.status === 'open' && session.id !== keepOpen?.id
-          ? { ...session, status: 'closed' as const, endedAt: now }
-          : session,
-      )
-      const fixedAddedSessions = addedSessions.map((session) =>
-        session.status === 'open' && session.id !== keepOpen?.id
-          ? { ...session, status: 'closed' as const, endedAt: now }
-          : session,
-      )
-      const changedExisting = fixedExistingSessions.filter(
-        (session, index) => session.status !== state.sessions[index]?.status,
-      )
 
       set((current) => ({
         lists: [...addedLists, ...current.lists],
@@ -1595,7 +1325,6 @@ export const useStore = create<StoreState>((set, get) => {
         registry: [...addedRegistry, ...current.registry],
         events: [...addedEvents, ...current.events],
         blacklist: [...addedBlacklist, ...current.blacklist],
-        sessions: [...fixedAddedSessions, ...fixedExistingSessions],
         employees: [...addedEmployees, ...current.employees],
         audit: [entry, ...addedAudit, ...current.audit],
       }))
@@ -1605,7 +1334,6 @@ export const useStore = create<StoreState>((set, get) => {
         registry: addedRegistry,
         events: addedEvents,
         blacklist: addedBlacklist,
-        sessions: [...fixedAddedSessions, ...changedExisting],
         employees: addedEmployees,
         audit: [entry, ...addedAudit],
       })
@@ -1617,7 +1345,6 @@ export const useStore = create<StoreState>((set, get) => {
           addedRegistry.length +
           addedEvents.length +
           addedBlacklist.length +
-          addedSessions.length +
           addedEmployees.length +
           addedAudit.length,
         skipped: preview.totalRecords -
@@ -1626,7 +1353,6 @@ export const useStore = create<StoreState>((set, get) => {
             addedRegistry.length +
             addedEvents.length +
             addedBlacklist.length +
-            addedSessions.length +
             addedEmployees.length +
             addedAudit.length),
         preview,
@@ -1634,10 +1360,6 @@ export const useStore = create<StoreState>((set, get) => {
     },
   }
 })
-
-export function useActiveSession(): ScanSession | undefined {
-  return useStore((state) => state.sessions.find((session) => session.status === 'open'))
-}
 
 export function useActiveList(): ReturnList | undefined {
   return useStore((state) =>

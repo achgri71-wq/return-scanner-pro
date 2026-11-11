@@ -11,7 +11,6 @@ import {
   PackageCheck,
   PackageX,
   Pencil,
-  PlayCircle,
   Plus,
   RotateCcw,
   ScanLine,
@@ -20,14 +19,12 @@ import {
   Upload,
   XCircle,
 } from 'lucide-react'
-import type { ScanSession } from '../types'
 import { useStore } from '../store/useStore'
 import { useI18n, errorKey } from '../i18n'
 import {
   blacklistCodeSet,
   buildListComparison,
   computeListStats,
-  sessionActivity,
 } from '../lib/stats'
 import {
   formatDateTime,
@@ -35,10 +32,9 @@ import {
   relativeTime,
 } from '../lib/utils'
 import { parseCodeBlob } from '../lib/codes'
-import { exportListXlsx, exportReportXlsx } from '../lib/export'
+import { exportListXlsx } from '../lib/export'
 import {
   Badge,
-  ConfirmDialog,
   EmptyState,
   Modal,
   PageHeader,
@@ -46,7 +42,6 @@ import {
   SearchField,
   Section,
   Segmented,
-  Spinner,
   StatCard,
 } from '../components/ui'
 import {
@@ -55,14 +50,12 @@ import {
   ListStatusBadge,
   ParcelStatusBadge,
   RegistryStatusBadge,
-  SessionStatusBadge,
 } from '../components/StatusBadge'
 import { ImportWizard } from '../components/ImportWizard'
-import { StartSessionDialog } from '../components/StartSessionDialog'
 import { CorrectionDialog } from '../components/CorrectionDialog'
 import { toast } from '../components/Toast'
 
-type Tab = 'codes' | 'unrequested' | 'sessions'
+type Tab = 'codes' | 'unrequested'
 type CodeFilter = 'all' | 'pending' | 'returned'
 
 export function ListDetailPage() {
@@ -74,7 +67,6 @@ export function ListDetailPage() {
   const registry = useStore((state) => state.registry)
   const events = useStore((state) => state.events)
   const blacklist = useStore((state) => state.blacklist)
-  const sessions = useStore((state) => state.sessions)
   const employees = useStore((state) => state.employees)
   const audit = useStore((state) => state.audit)
   const settings = useStore((state) => state.settings)
@@ -83,15 +75,12 @@ export function ListDetailPage() {
   const updateListNotes = useStore((state) => state.updateListNotes)
   const archiveList = useStore((state) => state.archiveList)
   const reopenList = useStore((state) => state.reopenList)
-  const closeSession = useStore((state) => state.closeSession)
-  const reopenSession = useStore((state) => state.reopenSession)
 
   const [tab, setTab] = useState<Tab>('codes')
   const [query, setQuery] = useState('')
   const [codeFilter, setCodeFilter] = useState<CodeFilter>('all')
   const [showImport, setShowImport] = useState(false)
   const [importMode, setImportMode] = useState<'merge' | 'replace'>('merge')
-  const [showSession, setShowSession] = useState(false)
   const [showAddCodes, setShowAddCodes] = useState(false)
   const [quickCodes, setQuickCodes] = useState('')
   const [showNotes, setShowNotes] = useState(false)
@@ -99,15 +88,12 @@ export function ListDetailPage() {
   const [showRename, setShowRename] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
   const [correctionParcel, setCorrectionParcel] = useState<string | null>(null)
-  const [confirmClose, setConfirmClose] = useState<ScanSession | null>(null)
-  const [confirmSwitch, setConfirmSwitch] = useState(false)
-  const [busy, setBusy] = useState(false)
 
   const list = lists.find((item) => item.id === listId)
   const blacklisted = useMemo(() => blacklistCodeSet(blacklist), [blacklist])
   const data = useMemo(
-    () => ({ lists, parcels, registry, events, blacklist, sessions, employees, audit }),
-    [lists, parcels, registry, events, blacklist, sessions, employees, audit],
+    () => ({ lists, parcels, registry, events, blacklist, employees, audit }),
+    [lists, parcels, registry, events, blacklist, employees, audit],
   )
   const stats = useMemo(
     () => (list ? computeListStats(list.id, parcels, blacklisted) : null),
@@ -116,17 +102,6 @@ export function ListDetailPage() {
   const comparison = useMemo(
     () => (list ? buildListComparison(list.id, data) : null),
     [list, data],
-  )
-  const listSessions = useMemo(
-    () =>
-      sessions
-        .filter((session) => session.listId === listId)
-        .sort((a, b) => b.startedAt.localeCompare(a.startedAt)),
-    [sessions, listId],
-  )
-  const openSession = listSessions.find((session) => session.status === 'open')
-  const otherOpen = sessions.find(
-    (session) => session.status === 'open' && session.listId !== listId,
   )
   const scopedParcels = useMemo(
     () =>
@@ -164,21 +139,7 @@ export function ListDetailPage() {
   const activeCorrection = scopedParcels.find((parcel) => parcel.id === correctionParcel) ?? null
 
   const activate = () => {
-    if (settings.confirmSwitch && otherOpen) {
-      setConfirmSwitch(true)
-      return
-    }
     const result = switchList(list.id)
-    if (!result.ok) {
-      toast(t(errorKey(result.error)), 'error')
-      return
-    }
-    toast(t('toast.listActivated'))
-  }
-
-  const doSwitch = () => {
-    const result = switchList(list.id)
-    setConfirmSwitch(false)
     if (!result.ok) {
       toast(t(errorKey(result.error)), 'error')
       return
@@ -224,49 +185,9 @@ export function ListDetailPage() {
     toast(t('toast.listArchived'))
   }
 
-  const doCloseSession = () => {
-    if (!confirmClose) return
-    setBusy(true)
-    const result = closeSession(confirmClose.id)
-    setBusy(false)
-    setConfirmClose(null)
-    if (!result.ok) {
-      toast(t(errorKey(result.error)), 'error')
-      return
-    }
-    toast(t('toast.sessionClosed'))
-  }
-
-  const doReopenSession = (sessionId: string) => {
-    const result = reopenSession(sessionId)
-    if (!result.ok) {
-      toast(t(errorKey(result.error)), 'error')
-      return
-    }
-    toast(t('toast.sessionReopened'))
-  }
-
   const exportList = async () => {
     try {
       await exportListXlsx(list, parcels, blacklisted, lang)
-      toast(t('toast.exportStarted'))
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('common.unknownError'), 'error')
-    }
-  }
-
-  const exportSession = async (session: ScanSession) => {
-    if (!session.report) {
-      toast(t('reports.noReport'), 'warning')
-      return
-    }
-    try {
-      await exportReportXlsx(
-        session.report,
-        parcels,
-        events.filter((event) => event.sessionId === session.id),
-        lang,
-      )
       toast(t('toast.exportStarted'))
     } catch (error) {
       toast(error instanceof Error ? error.message : t('common.unknownError'), 'error')
@@ -289,7 +210,6 @@ export function ListDetailPage() {
   const tabs: Array<{ value: Tab; label: string; count: number }> = [
     { value: 'codes', label: t('list.codesTab'), count: stats.total },
     { value: 'unrequested', label: t('list.unrequested'), count: comparison?.unrequested.length ?? 0 },
-    { value: 'sessions', label: t('list.sessionsTab'), count: listSessions.length },
   ]
 
   return (
@@ -309,11 +229,6 @@ export function ListDetailPage() {
             {isActive ? (
               <Badge tone="accent" dot>
                 {t('status.active')}
-              </Badge>
-            ) : null}
-            {openSession ? (
-              <Badge tone="success" dot>
-                {t('lists.sessionOpen')}
               </Badge>
             ) : null}
             <span className="detail-subtitle">
@@ -440,20 +355,6 @@ export function ListDetailPage() {
 
       <div className="section-head">
         <Segmented value={tab} options={tabs} onChange={setTab} />
-        {openSession ? (
-          <button
-            type="button"
-            className="btn btn-danger btn-sm"
-            onClick={() => setConfirmClose(openSession)}
-          >
-            {t('list.closeSession')}
-          </button>
-        ) : !locked ? (
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowSession(true)}>
-            <PlayCircle size={15} />
-            {t('scan.startSession')}
-          </button>
-        ) : null}
       </div>
 
       {tab === 'codes' ? (
@@ -533,70 +434,6 @@ export function ListDetailPage() {
         </Section>
       ) : null}
 
-      {tab === 'sessions' ? (
-        <Section>
-          {listSessions.length ? (
-            <div className="session-list">
-              {listSessions.map((session) => {
-                const activity = sessionActivity(session.id, events)
-                return (
-                  <div className="session-row" key={session.id}>
-                    <div className="session-main">
-                      <div className="session-title">
-                        <strong className="mono">{session.id}</strong>
-                        <SessionStatusBadge status={session.status} />
-                      </div>
-                      <small>
-                        {formatDateTime(session.startedAt, lang)}
-                        {session.endedAt ? ` → ${formatDateTime(session.endedAt, lang)}` : ''} ·{' '}
-                        {session.employeeName || t('session.noEmployee')}
-                      </small>
-                      <div className="session-chips">
-                        <span>{activity.scans} {t('reports.scans')}</span>
-                        <span>{activity.accepted} {t('reports.accepted')}</span>
-                        <span>{activity.duplicate} {t('reports.duplicates')}</span>
-                        <span>{activity.blacklisted} {t('reports.blacklistAttempts')}</span>
-                      </div>
-                    </div>
-                    <div className="session-actions">
-                      {session.status === 'open' ? (
-                        <button
-                          type="button"
-                          className="btn btn-danger btn-sm"
-                          onClick={() => setConfirmClose(session)}
-                        >
-                          {t('list.endSession')}
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => doReopenSession(session.id)}
-                          >
-                            <RotateCcw size={14} /> {t('lists.reopen')}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => void exportSession(session)}
-                            disabled={!session.report}
-                          >
-                            <Download size={14} /> {t('common.export')}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <EmptyState icon={BarChart3} title={t('list.noSessions')} />
-          )}
-        </Section>
-      ) : null}
-
       <ImportWizard
         open={showImport}
         onClose={() => setShowImport(false)}
@@ -604,38 +441,10 @@ export function ListDetailPage() {
         targetListId={list.id}
       />
 
-      <StartSessionDialog
-        open={showSession}
-        listId={list.id}
-        onClose={() => setShowSession(false)}
-      />
-
       <CorrectionDialog
         open={Boolean(correctionParcel)}
         parcel={activeCorrection}
         onClose={() => setCorrectionParcel(null)}
-      />
-
-      <ConfirmDialog
-        open={Boolean(confirmClose)}
-        danger
-        title={t('scan.endConfirm')}
-        message={t('scan.endText')}
-        confirmLabel={t('scan.endSession')}
-        cancelLabel={t('common.cancel')}
-        busy={busy}
-        onClose={() => setConfirmClose(null)}
-        onConfirm={doCloseSession}
-      />
-
-      <ConfirmDialog
-        open={confirmSwitch}
-        title={t('lists.switchTitle')}
-        message={t('lists.switchText', { name: otherOpen?.listName ?? '' })}
-        confirmLabel={t('lists.setActive')}
-        cancelLabel={t('common.cancel')}
-        onClose={() => setConfirmSwitch(false)}
-        onConfirm={doSwitch}
       />
 
       <Modal
@@ -736,8 +545,6 @@ export function ListDetailPage() {
           />
         </div>
       </Modal>
-
-      {busy ? <Spinner label={t('common.loading')} /> : null}
     </div>
   )
 }

@@ -5,17 +5,15 @@ import type {
   ReturnList,
   ReturnParcel,
   ScanEvent,
-  ScanSession,
   ScannedCode,
 } from '../types'
 import {
   buildListComparison,
-  buildSessionReport,
   blacklistCodeSet,
   computeEmployeeStats,
   computeListStats,
+  eventActivity,
   scanAttemptGroups,
-  sessionActivity,
 } from './stats'
 
 const NOW = '2026-10-27T10:00:00.000Z'
@@ -69,8 +67,6 @@ function event(
   code: string,
   result: ScanEvent['result'],
   listId = 'L1',
-  sessionId = 'S1',
-  employeeId = 'E1',
 ): ScanEvent {
   return {
     id,
@@ -78,16 +74,9 @@ function event(
     code,
     listId,
     listName: `List ${listId}`,
-    sessionId,
-    employeeId,
-    employeeName: 'Samir',
     source: 'manual',
     result,
   }
-}
-
-function session(id = 'S1', listId = 'L1', status: ScanSession['status'] = 'open'): ScanSession {
-  return { id, listId, listName: `List ${listId}`, startedAt: NOW, status }
 }
 
 function makeData(overrides: Partial<AppData> = {}): AppData {
@@ -97,7 +86,6 @@ function makeData(overrides: Partial<AppData> = {}): AppData {
     registry: [],
     events: [],
     blacklist: [],
-    sessions: [],
     employees: [],
     audit: [],
     ...overrides,
@@ -145,17 +133,16 @@ describe('computeListStats', () => {
   })
 })
 
-describe('session activity and reports', () => {
-  it('counts scan outcomes for a single session', () => {
+describe('event activity', () => {
+  it('counts scan outcomes for a set of events', () => {
     const events = [
       event('1', 'A', 'accepted'),
       event('2', 'A', 'duplicate'),
       event('3', 'X', 'not-required'),
       event('4', 'Y', 'blacklisted'),
       event('5', 'Z', 'other-list'),
-      event('6', 'B', 'accepted', 'L1', 'S2'),
     ]
-    expect(sessionActivity('S1', events)).toEqual({
+    expect(eventActivity(events)).toEqual({
       scans: 5,
       accepted: 1,
       rejected: 1,
@@ -164,53 +151,6 @@ describe('session activity and reports', () => {
       otherList: 1,
     })
   })
-
-  it('builds a session report with distinct unrequested codes', () => {
-    const data = makeData({
-      lists: [list('L1')],
-      parcels: [
-        parcel('L1', 'A', 'returned'),
-        parcel('L1', 'B'),
-        parcel('L1', 'C'),
-      ],
-      events: [
-        event('1', 'A', 'accepted'),
-        event('2', 'B', 'duplicate'),
-        event('3', 'X', 'not-required'),
-        event('4', 'X', 'not-required'),
-        event('5', 'Y', 'not-required'),
-        event('6', 'Z', 'blacklisted'),
-        event('7', 'W', 'other-list'),
-      ],
-      sessions: [session()],
-    })
-    const report = buildSessionReport(data.sessions[0]!, data.lists[0], data, '2026-10-27T12:00:00.000Z')
-
-    expect(report.listId).toBe('L1')
-    expect(report.listTotal).toBe(3)
-    expect(report.listReturned).toBe(1)
-    expect(report.listRemaining).toBe(2)
-    expect(report.sessionScans).toBe(7)
-    expect(report.sessionAccepted).toBe(1)
-    expect(report.unrequested).toBe(2)
-    expect(report.duplicateAttempts).toBe(1)
-    expect(report.blacklistedAttempts).toBe(1)
-    expect(report.otherListAttempts).toBe(1)
-    expect(report.endedAt).toBe('2026-10-27T12:00:00.000Z')
-    expect(report.completion).toBeCloseTo(1 / 3)
-  })
-
-  it('falls back to the stored session list name when the list is missing', () => {
-    const data = makeData({ sessions: [session()] })
-    const report = buildSessionReport(
-      { ...data.sessions[0]!, listName: 'Archived name' },
-      undefined,
-      data,
-      NOW,
-    )
-    expect(report.listName).toBe('Archived name')
-    expect(report.listTotal).toBe(0)
-  })
 })
 
 describe('list comparison', () => {
@@ -218,7 +158,7 @@ describe('list comparison', () => {
     expect(buildListComparison('NOPE', makeData())).toBeNull()
   })
 
-  it('scopes stats, events, sessions and unrequested registry rows to the list', () => {
+  it('scopes stats, events and unrequested registry rows to the list', () => {
     const data = makeData({
       lists: [list('L1'), list('L2')],
       parcels: [parcel('L1', 'A', 'returned'), parcel('L2', 'B', 'returned')],
@@ -234,25 +174,19 @@ describe('list comparison', () => {
         event('4', 'Z', 'other-list', 'L1'),
         event('5', 'B', 'accepted', 'L2'),
       ],
-      sessions: [
-        { ...session('S1', 'L1'), startedAt: '2026-10-01T00:00:00.000Z' },
-        { ...session('S2', 'L1'), startedAt: '2026-10-02T00:00:00.000Z' },
-        session('S3', 'L2'),
-      ],
     })
     const comparison = buildListComparison('L1', data)
     expect(comparison).not.toBeNull()
     expect(comparison?.stats.total).toBe(1)
     expect(comparison?.unrequested.map((entry) => entry.code)).toEqual(['X', 'Y'])
-    expect(comparison?.sessionScans).toBe(4)
+    expect(comparison?.totalScans).toBe(4)
     expect(comparison?.repeatedAttempts).toBe(1)
     expect(comparison?.otherListAttempts).toBe(1)
-    expect(comparison?.sessions.map((item) => item.id)).toEqual(['S2', 'S1'])
   })
 })
 
 describe('employee statistics', () => {
-  it('counts sessions, accepted parcels and scans per employee', () => {
+  it('counts accepted parcels and scans per employee', () => {
     const employees: Employee[] = [
       {
         id: 'E1',
@@ -271,38 +205,22 @@ describe('employee statistics', () => {
         updatedAt: NOW,
       },
     ]
-    const data = makeData({
+    const stats = computeEmployeeStats({
       employees,
-      parcels: [parcel('L1', 'A', 'returned'), parcel('L1', 'B', 'returned')],
-      sessions: [{ ...session('S1'), employeeId: 'E1' }, { ...session('S2'), employeeId: 'E2' }],
-      events: [
-        { ...event('1', 'A', 'accepted'), employeeId: 'E1' },
-        { ...event('2', 'B', 'duplicate'), employeeId: 'E1' },
-        { ...event('3', 'C', 'not-required'), employeeId: 'E2' },
+      parcels: [
+        { ...parcel('L1', 'A', 'returned'), returnedBy: 'Samir' },
+        { ...parcel('L1', 'B', 'returned'), returnedBy: 'Samir' },
+        { ...parcel('L1', 'C', 'returned'), returnedBy: 'Aya' },
       ],
     })
-    const stats = computeEmployeeStats(data)
     expect(stats.find((row) => row.employeeId === 'E1')).toEqual({
       employeeId: 'E1',
       name: 'Samir',
-      sessions: 1,
       accepted: 2,
       scans: 2,
     })
     expect(stats.find((row) => row.employeeId === 'E2')).toMatchObject({
-      sessions: 1,
-      scans: 1,
-    })
-  })
-
-  it('adds unknown employee ids that only appear in the event log', () => {
-    const data = makeData({
-      events: [{ ...event('1', 'A', 'accepted'), employeeId: 'E9', employeeName: 'Ghost' }],
-    })
-    expect(computeEmployeeStats(data)[0]).toMatchObject({
-      employeeId: 'E9',
-      name: 'Ghost',
-      sessions: 0,
+      accepted: 1,
       scans: 1,
     })
   })

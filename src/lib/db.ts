@@ -7,7 +7,6 @@ import type {
   ReturnList,
   ReturnParcel,
   ScanEvent,
-  ScanSession,
   ScannedCode,
 } from '../types'
 
@@ -17,7 +16,8 @@ interface ReturnScannerDB extends DBSchema {
   registry: { key: string; value: ScannedCode }
   events: { key: string; value: ScanEvent }
   blacklist: { key: string; value: BlacklistEntry }
-  sessions: { key: string; value: ScanSession }
+  /** Legacy store kept for schema stability; no longer read or written. */
+  sessions: { key: string; value: { id: string } }
   employees: { key: string; value: Employee }
   audit: { key: string; value: AuditEntry }
 }
@@ -62,18 +62,16 @@ function getDB(): Promise<IDBPDatabase<ReturnScannerDB>> {
 
 export async function loadAll(): Promise<AppData> {
   const db = await getDB()
-  const [lists, parcels, registry, events, blacklist, sessions, employees, audit] =
-    await Promise.all([
-      db.getAll('lists'),
-      db.getAll('parcels'),
-      db.getAll('registry'),
-      db.getAll('events'),
-      db.getAll('blacklist'),
-      db.getAll('sessions'),
-      db.getAll('employees'),
-      db.getAll('audit'),
-    ])
-  return { lists, parcels, registry, events, blacklist, sessions, employees, audit }
+  const [lists, parcels, registry, events, blacklist, employees, audit] = await Promise.all([
+    db.getAll('lists'),
+    db.getAll('parcels'),
+    db.getAll('registry'),
+    db.getAll('events'),
+    db.getAll('blacklist'),
+    db.getAll('employees'),
+    db.getAll('audit'),
+  ])
+  return { lists, parcels, registry, events, blacklist, employees, audit }
 }
 
 export interface DbChanges {
@@ -82,7 +80,6 @@ export interface DbChanges {
   registry?: ScannedCode[]
   events?: ScanEvent[]
   blacklist?: BlacklistEntry[]
-  sessions?: ScanSession[]
   employees?: Employee[]
   audit?: AuditEntry[]
   deleteLists?: string[]
@@ -90,7 +87,6 @@ export interface DbChanges {
   deleteRegistry?: string[]
   deleteEvents?: string[]
   deleteBlacklist?: string[]
-  deleteSessions?: string[]
   deleteEmployees?: string[]
   deleteAudit?: string[]
 }
@@ -103,7 +99,7 @@ function storesForChanges(changes: DbChanges): StoreName[] {
     registry: [changes.registry, changes.deleteRegistry],
     events: [changes.events, changes.deleteEvents],
     blacklist: [changes.blacklist, changes.deleteBlacklist],
-    sessions: [changes.sessions, changes.deleteSessions],
+    sessions: [undefined, undefined],
     employees: [changes.employees, changes.deleteEmployees],
     audit: [changes.audit, changes.deleteAudit],
   }
@@ -146,7 +142,6 @@ export async function replaceAll(data: AppData): Promise<void> {
     ...data.registry.map((value) => tx.objectStore('registry').put(value)),
     ...data.events.map((value) => tx.objectStore('events').put(value)),
     ...data.blacklist.map((value) => tx.objectStore('blacklist').put(value)),
-    ...data.sessions.map((value) => tx.objectStore('sessions').put(value)),
     ...data.employees.map((value) => tx.objectStore('employees').put(value)),
     ...data.audit.map((value) => tx.objectStore('audit').put(value)),
   ])

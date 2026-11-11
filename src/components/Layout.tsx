@@ -31,7 +31,6 @@ import { useI18n } from '../i18n'
 import { useOnline } from '../hooks/useOnline'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { cx } from '../lib/utils'
-import { Badge } from './ui'
 
 interface NavItem {
   to: string
@@ -47,9 +46,6 @@ export function Layout() {
   const activeList = useActiveList()
   const settings = useStore((state) => state.settings)
   const setSettings = useStore((state) => state.setSettings)
-  const openSession = useStore((state) =>
-    state.sessions.find((session) => session.status === 'open'),
-  )
   const persistStatus = useStore((state) => state.persistStatus)
   const lastSavedAt = useStore((state) => state.lastSavedAt)
   const online = useOnline()
@@ -142,11 +138,6 @@ export function Layout() {
                 <span className="chip-text">{t('dashboard.noActive')}</span>
               </span>
             )}
-            {openSession ? (
-              <Badge tone="success" dot className="session-pill">
-                {t('dashboard.openSession')}
-              </Badge>
-            ) : null}
             <span
               className={cx(
                 'save-pill',

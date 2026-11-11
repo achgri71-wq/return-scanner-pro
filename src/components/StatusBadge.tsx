@@ -7,7 +7,6 @@ import type {
   RegistryStatus,
   ScanOutcomeStatus,
   ScanResultKind,
-  SessionStatus,
 } from '../types'
 
 const LIST_TONES: Record<ListStatus, Tone> = {
@@ -94,7 +93,6 @@ const OUTCOME_TONES: Record<ScanOutcomeStatus, Tone> = {
   invalid: 'muted',
   'no-list': 'muted',
   'list-closed': 'muted',
-  'no-session': 'muted',
   ignored: 'muted',
 }
 
@@ -107,7 +105,6 @@ const OUTCOME_LABELS: Record<ScanOutcomeStatus, string> = {
   invalid: 'scan.resultInvalid',
   'no-list': 'scan.resultNoList',
   'list-closed': 'scan.resultClosed',
-  'no-session': 'scan.resultNoSession',
   ignored: 'scan.waiting',
 }
 
@@ -116,15 +113,6 @@ export function OutcomeBadge({ status }: { status: ScanOutcomeStatus }) {
   return (
     <Badge tone={OUTCOME_TONES[status]} dot>
       {t(OUTCOME_LABELS[status] as 'scan.resultAccepted')}
-    </Badge>
-  )
-}
-
-export function SessionStatusBadge({ status }: { status: SessionStatus }) {
-  const { t } = useI18n()
-  return (
-    <Badge tone={status === 'open' ? 'success' : 'neutral'} dot>
-      {t(status === 'open' ? 'status.open' : 'status.closed')}
     </Badge>
   )
 }

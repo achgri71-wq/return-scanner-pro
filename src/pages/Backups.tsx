@@ -37,7 +37,6 @@ const ERROR_KEYS: Record<string, TKey> = {
   'not-object': 'backup.code.not-object',
   'app-mismatch': 'backup.code.app-mismatch',
   'version-mismatch': 'backup.code.version-mismatch',
-  'multiple-open-sessions': 'backup.code.multiple-open-sessions',
   'orphan-events': 'backup.code.orphan-events',
 }
 
@@ -55,7 +54,6 @@ export function BackupsPage() {
   const registry = useStore((state) => state.registry)
   const events = useStore((state) => state.events)
   const blacklist = useStore((state) => state.blacklist)
-  const sessions = useStore((state) => state.sessions)
   const employees = useStore((state) => state.employees)
   const audit = useStore((state) => state.audit)
   const settings = useStore((state) => state.settings)
@@ -95,7 +93,6 @@ export function BackupsPage() {
     registry.length +
     events.length +
     blacklist.length +
-    sessions.length +
     employees.length +
     audit.length
 
@@ -162,7 +159,6 @@ export function BackupsPage() {
         [t('registry.title'), preview.counts.registry],
         [t('backups.events'), preview.counts.events],
         [t('nav.blacklist'), preview.counts.blacklist],
-        [t('reports.sessions'), preview.counts.sessions],
         [t('nav.employees'), preview.counts.employees],
         [t('nav.audit'), preview.counts.audit],
       ]

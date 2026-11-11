@@ -1,12 +1,11 @@
 import type {
   AppData,
   BlacklistEntry,
+  Employee,
   ReturnList,
   ReturnParcel,
   ScanEvent,
   ScannedCode,
-  SessionReportSnapshot,
-  ScanSession,
 } from '../types'
 import { percent } from './utils'
 
@@ -54,7 +53,7 @@ export function computeListStats(
   }
 }
 
-export interface SessionActivity {
+export interface EventActivity {
   scans: number
   accepted: number
   rejected: number
@@ -63,52 +62,14 @@ export interface SessionActivity {
   otherList: number
 }
 
-export function sessionActivity(sessionId: string, events: ScanEvent[]): SessionActivity {
-  const scoped = events.filter((event) => event.sessionId === sessionId)
+export function eventActivity(events: ScanEvent[]): EventActivity {
   return {
-    scans: scoped.length,
-    accepted: scoped.filter((event) => event.result === 'accepted').length,
-    rejected: scoped.filter((event) => event.result === 'not-required').length,
-    duplicate: scoped.filter((event) => event.result === 'duplicate').length,
-    blacklisted: scoped.filter((event) => event.result === 'blacklisted').length,
-    otherList: scoped.filter((event) => event.result === 'other-list').length,
-  }
-}
-
-export function buildSessionReport(
-  session: ScanSession,
-  list: ReturnList | undefined,
-  data: AppData,
-  endedAt: string,
-): SessionReportSnapshot {
-  const blacklisted = blacklistCodeSet(data.blacklist)
-  const stats = computeListStats(session.listId, data.parcels, blacklisted)
-  const activity = sessionActivity(session.id, data.events)
-  const scopedEvents = data.events.filter((event) => event.sessionId === session.id)
-  const unrequested = new Set(
-    scopedEvents
-      .filter((event) => event.result === 'not-required')
-      .map((event) => event.code),
-  ).size
-
-  return {
-    generatedAt: endedAt,
-    listId: session.listId,
-    listName: list?.name ?? session.listName,
-    sessionId: session.id,
-    listTotal: stats.total,
-    listReturned: stats.returned,
-    listRemaining: stats.remaining,
-    completion: stats.completion,
-    sessionScans: activity.scans,
-    sessionAccepted: activity.accepted,
-    unrequested,
-    blacklistedAttempts: activity.blacklisted,
-    duplicateAttempts: activity.duplicate,
-    otherListAttempts: activity.otherList,
-    startedAt: session.startedAt,
-    endedAt,
-    employeeName: session.employeeName,
+    scans: events.length,
+    accepted: events.filter((event) => event.result === 'accepted').length,
+    rejected: events.filter((event) => event.result === 'not-required').length,
+    duplicate: events.filter((event) => event.result === 'duplicate').length,
+    blacklisted: events.filter((event) => event.result === 'blacklisted').length,
+    otherList: events.filter((event) => event.result === 'other-list').length,
   }
 }
 
@@ -119,8 +80,7 @@ export interface ListComparison {
   blacklistedScans: number
   repeatedAttempts: number
   otherListAttempts: number
-  sessionScans: number
-  sessions: ScanSession[]
+  totalScans: number
 }
 
 export function buildListComparison(listId: string, data: AppData): ListComparison | null {
@@ -129,9 +89,6 @@ export function buildListComparison(listId: string, data: AppData): ListComparis
   const blacklisted = blacklistCodeSet(data.blacklist)
   const stats = computeListStats(listId, data.parcels, blacklisted)
   const events = data.events.filter((event) => event.listId === listId)
-  const sessions = data.sessions
-    .filter((session) => session.listId === listId)
-    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
 
   return {
     list,
@@ -142,47 +99,45 @@ export function buildListComparison(listId: string, data: AppData): ListComparis
     blacklistedScans: events.filter((event) => event.result === 'blacklisted').length,
     repeatedAttempts: events.filter((event) => event.result === 'duplicate').length,
     otherListAttempts: events.filter((event) => event.result === 'other-list').length,
-    sessionScans: events.length,
-    sessions,
+    totalScans: events.length,
   }
 }
 
 export interface EmployeeStats {
   employeeId: string
   name: string
-  sessions: number
   accepted: number
   scans: number
 }
 
-export function computeEmployeeStats(data: AppData): EmployeeStats[] {
-  const employeeById = new Map(data.employees.map((employee) => [employee.id, employee]))
+export function computeEmployeeStats(data: {
+  employees: Employee[]
+  parcels: ReturnParcel[]
+}): EmployeeStats[] {
   const rows = new Map<string, EmployeeStats>()
 
   for (const employee of data.employees) {
     rows.set(employee.id, {
       employeeId: employee.id,
       name: employee.name,
-      sessions: data.sessions.filter((session) => session.employeeId === employee.id).length,
       accepted: data.parcels.filter(
         (parcel) => parcel.status === 'returned' && parcel.returnedBy === employee.name,
       ).length,
-      scans: data.events.filter((event) => event.employeeId === employee.id).length,
+      scans: 0,
     })
   }
 
-  for (const event of data.events) {
-    if (!event.employeeId || rows.has(event.employeeId)) continue
-    const name = event.employeeName ?? employeeById.get(event.employeeId)?.name ?? event.employeeId
-    rows.set(event.employeeId, {
-      employeeId: event.employeeId,
-      name,
-      sessions: data.sessions.filter((session) => session.employeeId === event.employeeId).length,
-      accepted: data.parcels.filter(
-        (parcel) => parcel.status === 'returned' && parcel.returnedBy === name,
-      ).length,
-      scans: data.events.filter((item) => item.employeeId === event.employeeId).length,
-    })
+  const eventCounts = new Map<string, number>()
+  for (const parcel of data.parcels) {
+    if (parcel.status !== 'returned' || !parcel.returnedBy) continue
+    const match = data.employees.find(
+      (employee) => employee.name === parcel.returnedBy,
+    )
+    if (match) eventCounts.set(match.id, (eventCounts.get(match.id) ?? 0) + 1)
+  }
+  for (const [id, count] of eventCounts) {
+    const row = rows.get(id)
+    if (row) row.scans = count
   }
 
   return [...rows.values()].sort((a, b) => b.accepted - a.accepted || b.scans - a.scans)

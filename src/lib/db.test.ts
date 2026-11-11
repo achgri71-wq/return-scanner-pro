@@ -51,7 +51,6 @@ describe('IndexedDB persistence', () => {
       registry: [],
       events: [],
       blacklist: [],
-      sessions: [],
       employees: [],
       audit: [],
     })
@@ -119,7 +118,6 @@ describe('replaceAll', () => {
       registry: [registry('R-NEW', 'NEW', 'NEW-1')],
       events: [],
       blacklist: [blacklist('BNEW', 'NEW-BAD')],
-      sessions: [],
       employees: [],
       audit: [],
     })
@@ -139,7 +137,6 @@ describe('replaceAll', () => {
       registry: [],
       events: [],
       blacklist: [],
-      sessions: [],
       employees: [],
       audit: [],
     })

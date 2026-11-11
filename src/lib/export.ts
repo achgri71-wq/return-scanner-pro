@@ -6,11 +6,9 @@ import type {
   ReturnList,
   ReturnParcel,
   ScanEvent,
-  ScanSession,
   ScannedCode,
-  SessionReportSnapshot,
 } from '../types'
-import { downloadCsv, downloadText, formatDateTime, sanitizeFilename } from './utils'
+import { downloadCsv, formatDateTime, sanitizeFilename } from './utils'
 
 type SheetSpec = Sheet<Blob>
 
@@ -300,7 +298,7 @@ export async function exportEventsXlsx(
   const labels = LABELS[lang]
   await exportRowsXlsx(
     labels.events,
-    [labels.date, labels.code, labels.list, labels.employee, labels.result, labels.attempt],
+    [labels.date, labels.code, labels.list, labels.result, labels.attempt],
     events
       .slice()
       .sort((a, b) => b.at.localeCompare(a.at))
@@ -308,156 +306,10 @@ export async function exportEventsXlsx(
         formatDateTime(event.at, lang),
         event.code,
         event.listName,
-        event.employeeName ?? '',
         statusText(event.result, lang),
         event.source,
       ]),
     `journal-scans-${Date.now()}.xlsx`,
-    lang,
-  )
-}
-
-export function exportReportCsv(
-  report: SessionReportSnapshot,
-  events: ScanEvent[],
-  lang: Language,
-): void {
-  const fr = lang === 'fr'
-  const rows: string[][] = [
-    [fr ? 'champ' : 'الحقل', fr ? 'valeur' : 'القيمة'],
-    [fr ? 'liste' : 'القائمة', report.listName],
-    ['list_id', report.listId],
-    ['session', report.sessionId],
-    ['started_at', formatDateTime(report.startedAt, lang)],
-    ['ended_at', formatDateTime(report.endedAt, lang)],
-    ['total_required', String(report.listTotal)],
-    ['returned', String(report.listReturned)],
-    ['remaining', String(report.listRemaining)],
-    ['completion', `${Math.round(report.completion * 100)}%`],
-    ['session_scans', String(report.sessionScans)],
-    ['session_accepted', String(report.sessionAccepted)],
-    ['unrequested', String(report.unrequested)],
-    ['blacklisted_attempts', String(report.blacklistedAttempts)],
-    ['duplicate_attempts', String(report.duplicateAttempts)],
-    ['other_list_attempts', String(report.otherListAttempts)],
-    [],
-    [fr ? 'date' : 'التاريخ', 'code', fr ? 'employé' : 'الموظف', fr ? 'résultat' : 'النتيجة', 'source'],
-    ...events.map((event) => [
-      formatDateTime(event.at, lang),
-      event.code,
-      event.employeeName ?? '',
-      event.result,
-      event.source,
-    ]),
-  ]
-  downloadCsv(rows, `rapport-${sanitizeFilename(report.listName)}-${report.sessionId}.csv`)
-}
-
-export function exportReportTxt(report: SessionReportSnapshot, lang: Language): void {
-  const fr = lang === 'fr'
-  const lines = [
-    fr ? 'RAPPORT DE SESSION DE RETOUR' : 'تقرير جلسة الإرجاع',
-    '='.repeat(34),
-    `${fr ? 'Liste' : 'القائمة'} : ${report.listName}`,
-    `${fr ? 'Identifiant liste' : 'معرف القائمة'} : ${report.listId}`,
-    `${fr ? 'Session' : 'الجلسة'} : ${report.sessionId}`,
-    `${fr ? 'Employé' : 'الموظف'} : ${report.employeeName ?? '—'}`,
-    `${fr ? 'Début' : 'البداية'} : ${formatDateTime(report.startedAt, lang)}`,
-    `${fr ? 'Fin' : 'النهاية'} : ${formatDateTime(report.endedAt, lang)}`,
-    '',
-    `${fr ? 'Colis requis' : 'الطرود المطلوبة'} : ${report.listTotal}`,
-    `${fr ? 'Retournés' : 'المرتجعة'} : ${report.listReturned}`,
-    `${fr ? 'Restants' : 'المتبقية'} : ${report.listRemaining}`,
-    `${fr ? 'Progression' : 'نسبة الإنجاز'} : ${Math.round(report.completion * 100)}%`,
-    '',
-    `${fr ? 'Scans de la session' : 'عمليات مسح الجلسة'} : ${report.sessionScans}`,
-    `${fr ? 'Acceptés dans la session' : 'المقبولة في الجلسة'} : ${report.sessionAccepted}`,
-    `${fr ? 'Codes non demandés' : 'الأكواد غير المطلوبة'} : ${report.unrequested}`,
-    `${fr ? 'Tentatives de codes interdits' : 'محاولات الأكواد المحظورة'} : ${report.blacklistedAttempts}`,
-    `${fr ? 'Tentatives répétées' : 'المحاولات المكررة'} : ${report.duplicateAttempts}`,
-    `${fr ? 'Codes d’autres listes' : 'أكواد من قوائم أخرى'} : ${report.otherListAttempts}`,
-  ]
-  downloadText(`\uFEFF${lines.join('\r\n')}`, `rapport-${sanitizeFilename(report.listName)}-${report.sessionId}.txt`)
-}
-
-export async function exportReportXlsx(
-  report: SessionReportSnapshot,
-  parcels: ReturnParcel[],
-  events: ScanEvent[],
-  lang: Language,
-): Promise<void> {
-  const labels = LABELS[lang]
-  const summary: SheetData = [
-    [headerCell(labels.report)],
-    [labels.listName, report.listName],
-    [labels.listId, report.listId],
-    [labels.session, report.sessionId],
-    [labels.employee, report.employeeName ?? '—'],
-    [labels.started, formatDateTime(report.startedAt, lang)],
-    [labels.ended, formatDateTime(report.endedAt, lang)],
-    [labels.total, report.listTotal],
-    [labels.returned, report.listReturned],
-    [labels.remaining, report.listRemaining],
-    [labels.completionPct, Math.round(report.completion * 100)],
-    [labels.scans, report.sessionScans],
-    [labels.accepted, report.sessionAccepted],
-    [labels.unrequested, report.unrequested],
-    [labels.blacklisted, report.blacklistedAttempts],
-    [labels.duplicates, report.duplicateAttempts],
-    [labels.otherList, report.otherListAttempts],
-    [labels.generated, formatDateTime(report.generatedAt, lang)],
-  ]
-  const codes: SheetData = [
-    headerRow([labels.code, labels.status, labels.returnedAt, labels.returnedBy]),
-    ...parcels
-      .filter((parcel) => parcel.listId === report.listId)
-      .slice()
-      .sort((a, b) => a.code.localeCompare(b.code))
-      .map((parcel) => [
-        parcel.code,
-        statusText(parcel.status, lang),
-        parcel.returnedAt ? formatDateTime(parcel.returnedAt, lang) : '',
-        parcel.returnedBy ?? '',
-      ]),
-  ]
-  const eventRows: SheetData = [
-    headerRow([labels.date, labels.code, labels.result, labels.employee]),
-    ...events
-      .slice()
-      .sort((a, b) => b.at.localeCompare(a.at))
-      .map((event) => [
-        formatDateTime(event.at, lang),
-        event.code,
-        statusText(event.result, lang),
-        event.employeeName ?? '',
-      ]),
-  ]
-  await writeWorkbook(
-    [
-      { data: summary, sheet: labels.summary, columns: [{ width: 24 }, { width: 46 }] },
-      { data: codes, sheet: labels.codes, columns: [{ width: 28 }, { width: 18 }, { width: 20 }, { width: 22 }] },
-      { data: eventRows, sheet: labels.events, columns: [{ width: 20 }, { width: 28 }, { width: 18 }, { width: 22 }] },
-    ],
-    `rapport-${sanitizeFilename(report.listName)}-${report.sessionId}.xlsx`,
-    lang,
-  )
-}
-
-export async function exportSessionXlsx(session: ScanSession, lang: Language): Promise<void> {
-  if (!session.report) return
-  await exportRowsXlsx(
-    LABELS[lang].report,
-    [LABELS[lang].session, LABELS[lang].list, LABELS[lang].accepted, LABELS[lang].remaining, LABELS[lang].completion],
-    [
-      [
-        session.id,
-        session.listName,
-        String(session.report.listReturned),
-        String(session.report.listRemaining),
-        `${Math.round(session.report.completion * 100)}%`,
-      ],
-    ],
-    `session-${session.id}.xlsx`,
     lang,
   )
 }

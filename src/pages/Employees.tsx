@@ -31,13 +31,7 @@ import { toast } from '../components/Toast'
 export function EmployeesPage() {
   const { t, lang } = useI18n()
   const employees = useStore((state) => state.employees)
-  const sessions = useStore((state) => state.sessions)
-  const events = useStore((state) => state.events)
   const parcels = useStore((state) => state.parcels)
-  const lists = useStore((state) => state.lists)
-  const registry = useStore((state) => state.registry)
-  const blacklist = useStore((state) => state.blacklist)
-  const audit = useStore((state) => state.audit)
   const settings = useStore((state) => state.settings)
   const setSettings = useStore((state) => state.setSettings)
   const addEmployee = useStore((state) => state.addEmployee)
@@ -52,8 +46,8 @@ export function EmployeesPage() {
   const [active, setActive] = useState(true)
 
   const data = useMemo(
-    () => ({ lists, parcels, registry, events, blacklist, sessions, employees, audit }),
-    [lists, parcels, registry, events, blacklist, sessions, employees, audit],
+    () => ({ employees, parcels }),
+    [employees, parcels],
   )
   const stats = useMemo(() => computeEmployeeStats(data), [data])
   const statsById = useMemo(
@@ -158,12 +152,6 @@ export function EmployeesPage() {
           hint={current ? t('employees.select') : t('session.selectEmployee')}
           tone="success"
         />
-        <StatCard
-          icon={UserX}
-          label={t('common.inactive')}
-          value={employees.length - activeCount}
-          tone="warning"
-        />
       </div>
 
       <Section>
@@ -217,9 +205,6 @@ export function EmployeesPage() {
                     </small>
                   </div>
                   <div className="employee-kpis">
-                    <span>
-                      <strong>{row?.sessions ?? 0}</strong> {t('employees.sessions')}
-                    </span>
                     <span>
                       <strong>{row?.scans ?? 0}</strong> {t('employees.scans')}
                     </span>

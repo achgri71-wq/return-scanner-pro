@@ -7,7 +7,6 @@ import type {
   ReturnList,
   ReturnParcel,
   ScanEvent,
-  ScanSession,
   ScannedCode,
   Settings,
 } from '../types'
@@ -18,7 +17,6 @@ export interface BackupCounts {
   registry: number
   events: number
   blacklist: number
-  sessions: number
   employees: number
   audit: number
 }
@@ -112,7 +110,6 @@ function sanitizeParcels(values: unknown[], listIds: Set<string>): ReturnParcel[
           : 'manual',
       returnedAt: text(value.returnedAt) || undefined,
       returnedBy: text(value.returnedBy) || undefined,
-      sessionId: text(value.sessionId) || undefined,
     })
   }
   return result
@@ -150,8 +147,6 @@ function sanitizeRegistry(values: unknown[], listIds: Set<string>): ScannedCode[
         value.lastResult === 'other-list'
           ? value.lastResult
           : 'not-required',
-      firstSessionId: text(value.firstSessionId) || undefined,
-      lastSessionId: text(value.lastSessionId) || undefined,
       returnedAt: text(value.returnedAt) || undefined,
       blacklistReason: text(value.blacklistReason) || undefined,
       otherListId: text(value.otherListId) || undefined,
@@ -175,9 +170,6 @@ function sanitizeEvents(values: unknown[]): ScanEvent[] {
       code: text(value.code).trim().toUpperCase(),
       listId: text(value.listId),
       listName: text(value.listName),
-      sessionId: text(value.sessionId) || undefined,
-      employeeId: text(value.employeeId) || undefined,
-      employeeName: text(value.employeeName) || undefined,
       source:
         value.source === 'camera' || value.source === 'hid' ? value.source : 'manual',
       result:
@@ -210,34 +202,6 @@ function sanitizeBlacklist(values: unknown[]): BlacklistEntry[] {
       addedBy: text(value.addedBy) || 'local',
       updatedAt: text(value.updatedAt) || undefined,
       updatedBy: text(value.updatedBy) || undefined,
-    })
-  }
-  return result
-}
-
-function sanitizeSessions(values: unknown[], listIds: Set<string>): ScanSession[] {
-  const result: ScanSession[] = []
-  const seen = new Set<string>()
-  for (const value of values) {
-    if (!isObject(value)) continue
-    const id = text(value.id)
-    const listId = text(value.listId)
-    if (!id || !listId || !listIds.has(listId) || seen.has(id)) continue
-    seen.add(id)
-    result.push({
-      id,
-      listId,
-      listName: text(value.listName),
-      employeeId: text(value.employeeId) || undefined,
-      employeeName: text(value.employeeName) || undefined,
-      startedAt: text(value.startedAt) || new Date().toISOString(),
-      endedAt: text(value.endedAt) || undefined,
-      status: value.status === 'closed' ? 'closed' : 'open',
-      lastActivityAt: text(value.lastActivityAt) || undefined,
-      report: isObject(value.report) ? (value.report as unknown as ScanSession['report']) : undefined,
-      reportHistory: Array.isArray(value.reportHistory)
-        ? (value.reportHistory as unknown as ScanSession['reportHistory'])
-        : undefined,
     })
   }
   return result
@@ -296,7 +260,6 @@ export function validateBackup(value: unknown): BackupPreview {
     registry: 0,
     events: 0,
     blacklist: 0,
-    sessions: 0,
     employees: 0,
     audit: 0,
   }
@@ -306,7 +269,7 @@ export function validateBackup(value: unknown): BackupPreview {
   }
   if (value.app !== 'return-scanner-pro') errors.push('app-mismatch')
   if (value.version !== 1) errors.push('version-mismatch')
-  for (const key of ['lists', 'parcels', 'registry', 'events', 'blacklist', 'sessions', 'employees', 'audit']) {
+  for (const key of ['lists', 'parcels', 'registry', 'events', 'blacklist', 'employees', 'audit']) {
     if (!Array.isArray(value[key])) errors.push(`missing-${key}`)
   }
   if (errors.length) {
@@ -319,7 +282,6 @@ export function validateBackup(value: unknown): BackupPreview {
   const registry = sanitizeRegistry(array(value.registry), listIds)
   const events = sanitizeEvents(array(value.events))
   const blacklist = sanitizeBlacklist(array(value.blacklist))
-  const sessions = sanitizeSessions(array(value.sessions), listIds)
   const employees = sanitizeEmployees(array(value.employees))
   const audit = sanitizeAudit(array(value.audit))
 
@@ -328,22 +290,18 @@ export function validateBackup(value: unknown): BackupPreview {
   if (registry.length !== array(value.registry).length) warnings.push('invalid-registry-skipped')
   if (events.length !== array(value.events).length) warnings.push('invalid-events-skipped')
   if (blacklist.length !== array(value.blacklist).length) warnings.push('invalid-blacklist-skipped')
-  if (sessions.length !== array(value.sessions).length) warnings.push('invalid-sessions-skipped')
   if (employees.length !== array(value.employees).length) warnings.push('invalid-employees-skipped')
   if (audit.length !== array(value.audit).length) warnings.push('invalid-audit-skipped')
 
-  const openSessions = sessions.filter((session) => session.status === 'open')
-  if (openSessions.length > 1) warnings.push('multiple-open-sessions')
   if (events.some((event) => !listIds.has(event.listId))) warnings.push('orphan-events')
 
-  const data: AppData = { lists, parcels, registry, events, blacklist, sessions, employees, audit }
+  const data: AppData = { lists, parcels, registry, events, blacklist, employees, audit }
   const counts: BackupCounts = {
     lists: lists.length,
     parcels: parcels.length,
     registry: registry.length,
     events: events.length,
     blacklist: blacklist.length,
-    sessions: sessions.length,
     employees: employees.length,
     audit: audit.length,
   }

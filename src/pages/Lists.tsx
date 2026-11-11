@@ -9,7 +9,6 @@ import {
   FilePlus2,
   ListChecks,
   Plus,
-  Search,
   Upload,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
@@ -18,7 +17,7 @@ import { blacklistCodeSet, computeListStats } from '../lib/stats'
 import { formatPercent, relativeTime } from '../lib/utils'
 import { exportListXlsx } from '../lib/export'
 import { parseCodeBlob } from '../lib/codes'
-import { Badge, ConfirmDialog, EmptyState, Modal, PageHeader, ProgressBar, SearchField, Section, Segmented, Spinner } from '../components/ui'
+import { Badge, EmptyState, Modal, PageHeader, ProgressBar, SearchField, Section, Segmented, Spinner } from '../components/ui'
 import { ListSourceBadge, ListStatusBadge } from '../components/StatusBadge'
 import { ImportWizard } from '../components/ImportWizard'
 import { toast } from '../components/Toast'
@@ -32,7 +31,6 @@ export function ListsPage() {
   const lists = useStore((state) => state.lists)
   const parcels = useStore((state) => state.parcels)
   const blacklist = useStore((state) => state.blacklist)
-  const sessions = useStore((state) => state.sessions)
   const settings = useStore((state) => state.settings)
   const createList = useStore((state) => state.createList)
   const switchList = useStore((state) => state.switchList)
@@ -46,12 +44,10 @@ export function ListsPage() {
   const [notes, setNotes] = useState('')
   const [createError, setCreateError] = useState('')
   const [creating, setCreating] = useState(false)
-  const [pendingList, setPendingList] = useState<ReturnList | null>(null)
   const [addCodesTarget, setAddCodesTarget] = useState<ReturnList | null>(null)
   const [quickCodes, setQuickCodes] = useState('')
 
   const blacklisted = useMemo(() => blacklistCodeSet(blacklist), [blacklist])
-  const openSession = sessions.find((session) => session.status === 'open')
 
   const counts = useMemo(() => {
     const base: Record<Filter, number> = {
@@ -81,24 +77,7 @@ export function ListsPage() {
 
   const activate = (list: ReturnList) => {
     if (list.status === 'completed' || list.status === 'archived') return
-    const needsConfirm =
-      settings.confirmSwitch && openSession && openSession.listId !== list.id
-    if (needsConfirm) {
-      setPendingList(list)
-      return
-    }
     const result = switchList(list.id)
-    if (!result.ok) {
-      toast(t(errorKey(result.error)), 'error')
-      return
-    }
-    toast(t('toast.listActivated'))
-  }
-
-  const confirmSwitch = () => {
-    if (!pendingList) return
-    const result = switchList(pendingList.id)
-    setPendingList(null)
     if (!result.ok) {
       toast(t(errorKey(result.error)), 'error')
       return
@@ -181,9 +160,6 @@ export function ListsPage() {
           {visible.map((list) => {
             const stats = computeListStats(list.id, parcels, blacklisted)
             const isActive = settings.activeListId === list.id
-            const hasSession = sessions.some(
-              (session) => session.status === 'open' && session.listId === list.id,
-            )
             return (
               <article key={list.id} className={`list-card${isActive ? ' is-active' : ''}`}>
                 <div className="list-card-head">
@@ -227,12 +203,7 @@ export function ListsPage() {
                     <ArrowRight size={15} />
                     {t('lists.open')}
                   </Link>
-                  {hasSession ? (
-                    <Link to="/scan" className="btn btn-primary btn-sm">
-                      <Search size={15} />
-                      {t('lists.sessionOpen')}
-                    </Link>
-                  ) : list.status === 'new' || list.status === 'active' ? (
+                  {list.status === 'new' || list.status === 'active' ? (
                     <button
                       type="button"
                       className={`btn btn-sm ${isActive ? 'btn-secondary' : 'btn-primary'}`}
@@ -335,18 +306,6 @@ export function ListsPage() {
         open={showImport}
         onClose={() => setShowImport(false)}
         onImported={(summary) => navigate(`/lists/${summary.listId}`)}
-      />
-
-      <ConfirmDialog
-        open={Boolean(pendingList)}
-        title={t('lists.switchTitle')}
-        message={t('lists.switchText', {
-          name: openSession?.listName ?? '',
-        })}
-        confirmLabel={t('lists.setActive')}
-        cancelLabel={t('common.cancel')}
-        onClose={() => setPendingList(null)}
-        onConfirm={confirmSwitch}
       />
 
       <Modal
