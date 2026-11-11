@@ -2167,6 +2167,43 @@ html[dir='rtl'] .toggle-input:checked + .toggle-switch span {
   display: block;
 }
 
+.scanner-zoom {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.6);
+  backdrop-filter: blur(8px);
+}
+
+.scanner-zoom button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: #fff;
+}
+
+.scanner-zoom button:active {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.scanner-zoom strong {
+  min-width: 46px;
+  text-align: center;
+  color: #fff;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
 .scanner-frame {
   position: absolute;
   top: 50%;

@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
-import { CameraOff, Flashlight, Keyboard, ScanBarcode, SwitchCamera, X } from 'lucide-react'
+import { BrowserMultiFormatReader } from '@zxing/browser'
+import { BarcodeFormat, DecodeHintType } from '@zxing/library'
+import {
+  CameraOff,
+  Flashlight,
+  Keyboard,
+  ScanBarcode,
+  SwitchCamera,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react'
 import { normalizeCode } from '../lib/codes'
 import { useI18n } from '../i18n'
 import { cx } from '../lib/utils'
@@ -13,10 +23,71 @@ interface CameraScannerProps {
   continuous?: boolean
 }
 
+/** Formats seen on parcel labels (Code 128 shipping codes, EAN/UPC, QR, Data Matrix…). */
+const WANTED_FORMATS: BarcodeFormat[] = [
+  BarcodeFormat.CODE_128,
+  BarcodeFormat.CODE_39,
+  BarcodeFormat.CODE_93,
+  BarcodeFormat.CODABAR,
+  BarcodeFormat.EAN_13,
+  BarcodeFormat.EAN_8,
+  BarcodeFormat.UPC_A,
+  BarcodeFormat.UPC_E,
+  BarcodeFormat.ITF,
+  BarcodeFormat.QR_CODE,
+  BarcodeFormat.DATA_MATRIX,
+  BarcodeFormat.PDF_417,
+]
+
+/** Same list using the native BarcodeDetector naming scheme. */
+const NATIVE_FORMATS = [
+  'code_128',
+  'code_39',
+  'code_93',
+  'codabar',
+  'ean_13',
+  'ean_8',
+  'upc_a',
+  'upc_e',
+  'itf',
+  'qr_code',
+  'data_matrix',
+  'pdf417',
+]
+
+/** High resolution so thin / distant / angled codes still have enough pixels. */
+const HIGH_RES: MediaTrackConstraints = {
+  width: { ideal: 1920 },
+  height: { ideal: 1080 },
+}
+
+const HIT_WINDOW = 1800
+const NATIVE_INTERVAL = 70
+
+interface NativeCode {
+  rawValue: string
+  boundingBox?: { width: number; height: number }
+}
+
+interface NativeDetector {
+  detect: (source: HTMLVideoElement) => Promise<NativeCode[]>
+}
+
+type NativeDetectorCtor = {
+  new (options: { formats?: string[] }): NativeDetector
+  getSupportedFormats?: () => Promise<string[]>
+}
+
+interface ZoomRange {
+  min: number
+  max: number
+  step: number
+}
+
 export function CameraScanner({ open, onClose, onDetect, continuous = true }: CameraScannerProps) {
   const { t } = useI18n()
   const videoRef = useRef<HTMLVideoElement>(null)
-  const controlsRef = useRef<IScannerControls | null>(null)
+  const trackRef = useRef<MediaStreamTrack | null>(null)
   const onDetectRef = useRef(onDetect)
   const onCloseRef = useRef(onClose)
   onDetectRef.current = onDetect
@@ -28,6 +99,8 @@ export function CameraScanner({ open, onClose, onDetect, continuous = true }: Ca
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [torchOn, setTorchOn] = useState(false)
   const [torchAvailable, setTorchAvailable] = useState(false)
+  const [zoom, setZoom] = useState<number | null>(null)
+  const [zoomRange, setZoomRange] = useState<ZoomRange | null>(null)
   const [manualMode, setManualMode] = useState(false)
   const [manualValue, setManualValue] = useState('')
   const [detected, setDetected] = useState<string | null>(null)
@@ -39,6 +112,8 @@ export function CameraScanner({ open, onClose, onDetect, continuous = true }: Ca
       setDetected(null)
       setTorchOn(false)
       setTorchAvailable(false)
+      setZoom(null)
+      setZoomRange(null)
       setStatus('starting')
     }
   }, [open])
@@ -47,44 +122,164 @@ export function CameraScanner({ open, onClose, onDetect, continuous = true }: Ca
     if (!open || manualMode) return
 
     let cancelled = false
-    const reader = new BrowserMultiFormatReader()
-    let controls: IScannerControls | null = null
+    const cleanups: Array<() => void> = []
     const hits = lastHitRef.current
+
+    const emit = (raw: string) => {
+      const code = normalizeCode(raw)
+      if (!code) return
+      const now = Date.now()
+      if (now - (hits.get(code) ?? 0) < HIT_WINDOW) return
+      hits.set(code, now)
+
+      setDetected(code)
+      window.setTimeout(() => {
+        setDetected((current) => (current === code ? null : current))
+      }, 1800)
+      onDetectRef.current(code)
+      if (!continuous) onCloseRef.current()
+    }
+
+    /** Multiple codes in one frame (a label often has barcode + QR): keep the biggest one. */
+    const emitBest = (found: NativeCode[]) => {
+      const sorted = found
+        .filter((item) => item.rawValue)
+        .sort((a, b) => {
+          const areaA = (a.boundingBox?.width ?? 0) * (a.boundingBox?.height ?? 0)
+          const areaB = (b.boundingBox?.width ?? 0) * (b.boundingBox?.height ?? 0)
+          return areaB - areaA
+        })
+      for (const item of sorted) emit(item.rawValue)
+    }
 
     const start = async () => {
       setStatus('starting')
       try {
-        const constraints: MediaStreamConstraints = deviceId
-          ? { video: { deviceId: { exact: deviceId } } }
-          : { video: { facingMode: { ideal: 'environment' } } }
-
-        const nextControls = await reader.decodeFromConstraints(
-          constraints,
-          videoRef.current ?? undefined,
-          (result) => {
-            if (!result) return
-            const code = normalizeCode(result.getText())
-            if (!code) return
-            const now = Date.now()
-            if (now - (hits.get(code) ?? 0) < 2200) return
-            hits.set(code, now)
-
-            setDetected(code)
-            window.setTimeout(() => {
-              setDetected((current) => (current === code ? null : current))
-            }, 1800)
-            onDetectRef.current(code)
-            if (!continuous) onCloseRef.current()
-          },
-        )
-
+        const facing: MediaTrackConstraints = deviceId
+          ? { deviceId: { exact: deviceId } }
+          : { facingMode: { ideal: 'environment' } }
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { ...facing, ...HIGH_RES },
+          audio: false,
+        })
         if (cancelled) {
-          nextControls.stop()
+          stream.getTracks().forEach((item) => item.stop())
           return
         }
+        cleanups.push(() => stream.getTracks().forEach((item) => item.stop()))
 
-        controls = nextControls
-        controlsRef.current = nextControls
+        const element = videoRef.current
+        if (element) {
+          element.srcObject = stream
+          await element.play().catch(() => undefined)
+        }
+
+        const track = stream.getVideoTracks()[0] ?? null
+        trackRef.current = track
+
+        if (track) {
+          try {
+            await track.applyConstraints({
+              advanced: [{ focusMode: 'continuous' }],
+            } as unknown as MediaTrackConstraints)
+          } catch {
+            /* fixed-focus cameras */
+          }
+
+          let capabilities: (MediaTrackCapabilities & {
+            torch?: boolean
+            zoom?: { min: number; max: number; step?: number }
+          }) | undefined
+          try {
+            capabilities = track.getCapabilities?.() as (MediaTrackCapabilities & {
+              torch?: boolean
+              zoom?: { min: number; max: number; step?: number }
+            }) | undefined
+          } catch {
+            capabilities = undefined
+          }
+
+          setTorchAvailable(Boolean(capabilities?.torch))
+
+          const range = capabilities?.zoom
+          if (range && range.max > range.min) {
+            const settings = track.getSettings() as MediaTrackSettings & { zoom?: number }
+            setZoomRange({
+              min: range.min,
+              max: range.max,
+              step: range.step && range.step > 0 ? range.step : (range.max - range.min) / 8,
+            })
+            setZoom(settings.zoom ?? range.min)
+          } else {
+            setZoomRange(null)
+            setZoom(null)
+          }
+        }
+
+        // Fast path: hardware/ML-accelerated BarcodeDetector (Chrome / Android).
+        let nativeDetector: NativeDetector | null = null
+        const NativeCtor = (window as unknown as { BarcodeDetector?: NativeDetectorCtor })
+          .BarcodeDetector
+        if (NativeCtor && element) {
+          try {
+            let formats = NATIVE_FORMATS
+            try {
+              const supported = await NativeCtor.getSupportedFormats?.()
+              const filtered = supported?.length
+                ? NATIVE_FORMATS.filter((format) => supported.includes(format))
+                : NATIVE_FORMATS
+              if (filtered.length) formats = filtered
+            } catch {
+              /* keep the default list */
+            }
+            nativeDetector = new NativeCtor({ formats })
+          } catch {
+            nativeDetector = null
+          }
+        }
+
+        if (nativeDetector && element) {
+          let busy = false
+          let timer = 0
+          const tick = async () => {
+            if (cancelled) return
+            if (!busy && element.readyState >= 2 && !document.hidden) {
+              busy = true
+              try {
+                emitBest(await nativeDetector.detect(element))
+              } catch {
+                /* frame not decodable — keep looping */
+              }
+              busy = false
+            }
+            timer = window.setTimeout(tick, NATIVE_INTERVAL)
+          }
+          void tick()
+          cleanups.push(() => window.clearTimeout(timer))
+        } else {
+          // Fallback: ZXing, tuned for speed and limited to useful formats.
+          const hints = new Map<DecodeHintType, unknown>()
+          hints.set(DecodeHintType.POSSIBLE_FORMATS, WANTED_FORMATS)
+          hints.set(DecodeHintType.TRY_HARDER, true)
+          const reader = new BrowserMultiFormatReader(hints, {
+            delayBetweenScanAttempts: 60,
+            delayBetweenScanSuccess: 120,
+          })
+          const controls = await reader.decodeFromStream(
+            stream,
+            element ?? undefined,
+            (result) => {
+              if (result) emit(result.getText())
+            },
+          )
+          if (cancelled) {
+            controls.stop()
+            return
+          }
+          cleanups.push(() => controls.stop())
+        }
+
+        if (cancelled) return
         setStatus('running')
 
         try {
@@ -95,15 +290,6 @@ export function CameraScanner({ open, onClose, onDetect, continuous = true }: Ca
         } catch {
           /* labels require permission */
         }
-
-        try {
-          const capabilities = nextControls.streamVideoCapabilitiesGet?.((track) => [
-            track,
-          ]) as (MediaTrackCapabilities & { torch?: boolean }) | undefined
-          if (!cancelled) setTorchAvailable(Boolean(capabilities?.torch))
-        } catch {
-          if (!cancelled) setTorchAvailable(false)
-        }
       } catch {
         if (!cancelled) setStatus('error')
       }
@@ -113,8 +299,8 @@ export function CameraScanner({ open, onClose, onDetect, continuous = true }: Ca
 
     return () => {
       cancelled = true
-      controls?.stop()
-      controlsRef.current = null
+      trackRef.current = null
+      for (const fn of cleanups) fn()
     }
   }, [open, manualMode, deviceId, continuous])
 
@@ -129,15 +315,44 @@ export function CameraScanner({ open, onClose, onDetect, continuous = true }: Ca
   }
 
   const toggleTorch = async () => {
-    const controls = controlsRef.current
-    if (!controls?.switchTorch) return
+    const track = trackRef.current
+    if (!track) return
     const next = !torchOn
     try {
-      await controls.switchTorch(next)
+      await track.applyConstraints({
+        advanced: [{ torch: next }],
+      } as unknown as MediaTrackConstraints)
       setTorchOn(next)
     } catch {
       setTorchAvailable(false)
     }
+  }
+
+  const zoomStep = () => {
+    const range = zoomRange
+    if (!range) return 1
+    return range.step || (range.max - range.min) / 8
+  }
+
+  const applyZoom = async (value: number) => {
+    const range = zoomRange
+    const track = trackRef.current
+    if (!range || !track) return
+    const clamped = Math.min(range.max, Math.max(range.min, value))
+    try {
+      await track.applyConstraints({
+        advanced: [{ zoom: clamped }],
+      } as unknown as MediaTrackConstraints)
+      setZoom(clamped)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const zoomLabel = () => {
+    const range = zoomRange
+    if (!range || zoom === null) return '1.0×'
+    return range.max <= 10 ? `${zoom.toFixed(1)}×` : `×${(zoom / range.min).toFixed(1)}`
   }
 
   const submitManual = () => {
@@ -232,6 +447,26 @@ export function CameraScanner({ open, onClose, onDetect, continuous = true }: Ca
             <span className="corner br" />
             <span className="scanner-line" />
           </div>
+
+          {zoomRange && status === 'running' ? (
+            <div className="scanner-zoom" role="group" aria-label={t('scan.zoom')}>
+              <button
+                type="button"
+                aria-label={t('scan.zoom')}
+                onClick={() => void applyZoom((zoom ?? zoomRange.min) - zoomStep())}
+              >
+                <ZoomOut size={16} />
+              </button>
+              <strong>{zoomLabel()}</strong>
+              <button
+                type="button"
+                aria-label={t('scan.zoom')}
+                onClick={() => void applyZoom((zoom ?? zoomRange.min) + zoomStep())}
+              >
+                <ZoomIn size={16} />
+              </button>
+            </div>
+          ) : null}
 
           {status === 'starting' ? (
             <div className="scanner-overlay">

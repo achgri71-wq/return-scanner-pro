@@ -182,6 +182,7 @@ export const messages = {
   'scan.cameraErrorText': ['Autorisez la caméra ou utilisez la saisie manuelle / la douchette.', 'اسمح بالكاميرا أو استخدم الإدخال اليدوي / القارئ.'],
   'scan.switchCamera': ['Changer de caméra', 'تغيير الكاميرا'],
   'scan.torch': ['Torche', 'الفلاش'],
+  'scan.zoom': ['Zoom', 'تكبير'],
   'scan.detected': ['Code détecté', 'تم اكتشاف الكود'],
   'scan.resultAccepted': ['Retour accepté', 'تم قبول الإرجاع'],
   'scan.resultAcceptedText': ['{code} — colis marqué comme retourné.', '{code} — تم تسجيل الطرد كمرتجع.'],
