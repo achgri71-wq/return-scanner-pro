@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight,
   BookOpen,
   ClipboardList,
   Download,
   PackageCheck,
+  PackageX,
   ShieldAlert,
   Trash2,
 } from 'lucide-react'
@@ -26,13 +27,16 @@ import { AttemptsBadge, ParcelStatusBadge, RegistryStatusBadge } from '../compon
 import { CorrectionDialog } from '../components/CorrectionDialog'
 import { toast } from '../components/Toast'
 
-type Tab = 'returned' | 'remaining' | 'registry'
+type Tab = 'returned' | 'remaining' | 'notRequired' | 'registry'
 
-const TABS: Array<{ value: Tab; labelKey: 'returned.title' | 'remaining.title' | 'registry.title' }> = [
-  { value: 'returned', labelKey: 'returned.title' },
-  { value: 'remaining', labelKey: 'remaining.title' },
-  { value: 'registry', labelKey: 'registry.title' },
-]
+const TAB_LABELS: Record<Tab, 'returned.title' | 'remaining.title' | 'notRequired.title' | 'registry.title'> = {
+  returned: 'returned.title',
+  remaining: 'remaining.title',
+  notRequired: 'notRequired.title',
+  registry: 'registry.title',
+}
+
+const TAB_ORDER: Tab[] = ['returned', 'remaining', 'notRequired', 'registry']
 
 export function RecordsPage({ initialTab = 'returned' }: { initialTab?: Tab }) {
   const { t, lang } = useI18n()
@@ -40,7 +44,10 @@ export function RecordsPage({ initialTab = 'returned' }: { initialTab?: Tab }) {
   const parcels = useStore((state) => state.parcels)
   const registry = useStore((state) => state.registry)
   const blacklist = useStore((state) => state.blacklist)
-  const [tab, setTab] = useState<Tab>(initialTab)
+  const [searchParams] = useSearchParams()
+  const requested = searchParams.get('tab')
+  const startTab: Tab = TAB_ORDER.includes(requested as Tab) ? (requested as Tab) : initialTab
+  const [tab, setTab] = useState<Tab>(startTab)
   const [query, setQuery] = useState('')
   const [listId, setListId] = useState<'all' | string>('all')
   const [correction, setCorrection] = useState<ReturnParcel | null>(null)
@@ -91,6 +98,17 @@ export function RecordsPage({ initialTab = 'returned' }: { initialTab?: Tab }) {
     [parcels, blacklisted, listId, needle],
   )
 
+  const notRequiredRows = useMemo(
+    () =>
+      registry.filter(
+        (entry) =>
+          entry.status === 'not-required' &&
+          (listId === 'all' || entry.listId === listId) &&
+          (!needle || entry.code.toLocaleLowerCase().includes(needle)),
+      ),
+    [registry, listId, needle],
+  )
+
   const registryRows = useMemo(
     () =>
       registry.filter(
@@ -104,11 +122,18 @@ export function RecordsPage({ initialTab = 'returned' }: { initialTab?: Tab }) {
   const counts = {
     returned: returnedRows.length,
     remaining: remainingRows.length,
+    notRequired: notRequiredRows.length,
     registry: registryRows.length,
   }
 
   const rows: Array<ReturnParcel | ScannedCode> =
-    tab === 'returned' ? returnedRows : tab === 'remaining' ? remainingRows : registryRows
+    tab === 'returned'
+      ? returnedRows
+      : tab === 'remaining'
+        ? remainingRows
+        : tab === 'notRequired'
+          ? notRequiredRows
+          : registryRows
   const sorted = useMemo(
     () =>
       [...rows].sort((a, b) => {
@@ -120,9 +145,9 @@ export function RecordsPage({ initialTab = 'returned' }: { initialTab?: Tab }) {
 
   const exportRows = async () => {
     try {
-      if (tab === 'registry') {
+      if (tab === 'registry' || tab === 'notRequired') {
         await exportRowsXlsx(
-          t('registry.title'),
+          t(tab === 'registry' ? 'registry.title' : 'notRequired.title'),
           [t('records.code'), t('common.list'), t('common.status'), t('records.attempts'), t('records.lastAttempt')],
           (rows as ScannedCode[]).map((entry) => [
             entry.code,
@@ -135,7 +160,7 @@ export function RecordsPage({ initialTab = 'returned' }: { initialTab?: Tab }) {
             String(entry.attempts),
             formatDateTime(entry.lastAttemptAt, lang),
           ]),
-          `registre-${Date.now()}.xlsx`,
+          tab === 'registry' ? `registre-${Date.now()}.xlsx` : `non-demandes-${Date.now()}.xlsx`,
           lang,
         )
       } else {
@@ -167,7 +192,7 @@ export function RecordsPage({ initialTab = 'returned' }: { initialTab?: Tab }) {
     }
   }
 
-  const tabs = TABS.map(({ value, labelKey }) => ({ value, label: t(labelKey), count: counts[value] }))
+  const tabs = TAB_ORDER.map((value) => ({ value, label: t(TAB_LABELS[value]), count: counts[value] }))
 
   return (
     <div className="page">
@@ -206,7 +231,7 @@ export function RecordsPage({ initialTab = 'returned' }: { initialTab?: Tab }) {
               const parcel = row as ReturnParcel
               const entry = row as ScannedCode
               const list = listById.get(parcel.listId || entry.listId)
-              if (tab === 'registry') {
+              if (tab === 'registry' || tab === 'notRequired') {
                 return (
                   <div className="record-row" key={entry.id}>
                     <div className="record-main">
@@ -283,14 +308,24 @@ export function RecordsPage({ initialTab = 'returned' }: { initialTab?: Tab }) {
           </div>
         ) : (
           <EmptyState
-            icon={tab === 'returned' ? PackageCheck : tab === 'remaining' ? ClipboardList : BookOpen}
-            title={t(tab === 'returned' ? 'returned.empty' : tab === 'remaining' ? 'remaining.empty' : 'registry.title')}
+            icon={
+              tab === 'returned'
+                ? PackageCheck
+                : tab === 'remaining'
+                  ? ClipboardList
+                  : tab === 'notRequired'
+                    ? PackageX
+                    : BookOpen
+            }
+            title={t(TAB_LABELS[tab])}
             text={
               tab === 'returned'
                 ? t('returned.emptyText')
                 : tab === 'remaining'
                   ? t('remaining.emptyText')
-                  : t('common.noData')
+                  : tab === 'notRequired'
+                    ? t('notRequired.emptyText')
+                    : t('common.noData')
             }
           />
         )}

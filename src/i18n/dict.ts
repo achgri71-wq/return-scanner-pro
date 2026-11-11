@@ -204,6 +204,9 @@ export const messages = {
   'remaining.title': ['Colis restants', 'الطرود المتبقية'],
   'remaining.empty': ['Aucun colis restant', 'لا توجد طرود متبقية'],
   'remaining.emptyText': ['Tous les colis de cette sélection sont retournés.', 'كل طرود هذا التحديد مرتجعة.'],
+  'notRequired.title': ['Colis non demandés', 'طرود غير مطلوبة'],
+  'notRequired.empty': ['Aucun code non demandé', 'لا توجد أكواد غير مطلوبة'],
+  'notRequired.emptyText': ['Les scans hors liste apparaîtront ici.', 'ستظهر هنا الأكواد المسحوبة خارج القائمة.'],
 
   'records.search': ['Rechercher un code…', 'البحث عن كود…'],
   'records.listFilter': ['Liste', 'القائمة'],
