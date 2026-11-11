@@ -1,12 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  AlertTriangle,
-  CheckCircle2,
-  CloudOff,
   DatabaseBackup,
   Download,
   FileJson,
-  HardDrive,
   RefreshCw,
   ShieldCheck,
   Upload,
@@ -24,12 +20,10 @@ import {
 import {
   Badge,
   ConfirmDialog,
-  PageHeader,
   ProgressBar,
   Section,
   Segmented,
   Spinner,
-  StatCard,
 } from '../components/ui'
 import { toast } from '../components/Toast'
 
@@ -47,7 +41,8 @@ function describeBackupCode(code: string, t: Translate): string {
   return key ? t(key) : code
 }
 
-export function BackupsPage() {
+/** Backup export / import / storage — rendered inside the Settings page. */
+export function BackupSection() {
   const { t, lang } = useI18n()
   const lists = useStore((state) => state.lists)
   const parcels = useStore((state) => state.parcels)
@@ -165,109 +160,18 @@ export function BackupsPage() {
     : []
 
   return (
-    <div className="page">
-      <PageHeader
-        title={t('backups.title')}
-        actions={
-          <button type="button" className="btn btn-primary" onClick={exportBackup}>
-            <Download size={16} />
-            {t('backups.export')}
-          </button>
-        }
-      />
-
-      <div className="stats-grid">
-        <StatCard
-          icon={DatabaseBackup}
-          label={t('backups.last')}
-          value={lastBackup ? formatDateTime(lastBackup, lang) : t('backups.never')}
-          hint={backupDue ? t('backups.due') : t('backups.ok')}
-          tone={backupDue ? 'warning' : 'success'}
-        />
-        <StatCard
-          icon={FileJson}
-          label={t('backups.counts')}
-          value={totalRecords}
-          hint={t('backups.records')}
-          tone="info"
-        />
-        <StatCard
-          icon={HardDrive}
-          label={t('backups.storage')}
-          value={storage ? storageLabel(storage.used) : '—'}
-          hint={storage ? `${t('backups.quota')} ${storageLabel(storage.quota)}` : t('backups.localOnly')}
-          tone="accent"
-        />
-      </div>
-
-      {backupDue ? (
-        <div className="callout warning">
-          <span className="callout-icon">
-            <AlertTriangle size={20} />
-          </span>
-          <div className="callout-text">
-            <strong>{t('backups.due')}</strong>
-            <p>{t('backups.autoWarn', { days: settings.backupReminderDays })}</p>
-          </div>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={exportBackup}>
-            <Download size={15} />
-            {t('backups.exportNow')}
-          </button>
-        </div>
-      ) : null}
-
-      <div className="two-col">
-        <Section title={t('backups.export')}>
-          <div className="backup-actions">
-            <button type="button" className="btn btn-primary" onClick={exportBackup}>
-              <Download size={16} />
-              {t('backups.exportNow')}
-            </button>
-            <Badge tone="success" dot>
-              {t('backups.settingsIncluded')}
-            </Badge>
-          </div>
-          <div className="backup-meta">
-            <span>
-              <CheckCircle2 size={15} /> {lists.length} {t('nav.lists')}
-            </span>
-            <span>
-              <CheckCircle2 size={15} /> {parcels.length} {t('backups.parcels')}
-            </span>
-            <span>
-              <CheckCircle2 size={15} /> {events.length} {t('backups.events')}
-            </span>
-          </div>
-        </Section>
-
-        <Section title={t('backups.import')}>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden-input"
-            onChange={(event) => void onFile(event.target.files?.[0])}
-          />
-          <div className="backup-actions">
-            <button type="button" className="btn btn-secondary" onClick={pickFile} disabled={busy}>
-              <Upload size={16} />
-              {t('backups.chooseFile')}
-            </button>
-            {fileName ? (
-              <Badge tone={preview?.valid ? 'success' : 'danger'} dot>
-                {fileName}
-              </Badge>
-            ) : null}
-          </div>
-        </Section>
-      </div>
-
-      <Section title={t('backups.storage')}>
+    <>
+      <Section title={t('backups.title')}>
         <div className="storage-line">
           <div>
-            <strong>{t('backups.used')} : {storage ? storageLabel(storage.used) : '—'}</strong>
+            <strong>
+              <DatabaseBackup size={16} className="inline-icon" />{' '}
+              {lastBackup ? formatDateTime(lastBackup, lang) : t('backups.never')}
+              {backupDue ? ` · ${t('backups.due')}` : ''}
+            </strong>
             <small>
-              {storage ? `${t('backups.quota')} : ${storageLabel(storage.quota)}` : t('backups.localOnly')}
+              {t('backups.used')} : {storage ? storageLabel(storage.used) : '—'}
+              {storage ? ` · ${t('backups.quota')} : ${storageLabel(storage.quota)}` : ''}
             </small>
           </div>
           <Badge tone={usageRatio > 0.85 ? 'danger' : 'neutral'}>
@@ -275,6 +179,31 @@ export function BackupsPage() {
           </Badge>
         </div>
         <ProgressBar value={usageRatio} tone={usageRatio > 0.85 ? 'warning' : 'accent'} />
+        <div className="backup-actions">
+          <button type="button" className="btn btn-primary" onClick={exportBackup}>
+            <Download size={16} />
+            {t('backups.exportNow')}
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={pickFile} disabled={busy}>
+            <Upload size={16} />
+            {t('backups.chooseFile')}
+          </button>
+          {fileName ? (
+            <Badge tone={preview?.valid ? 'success' : 'danger'} dot>
+              {fileName}
+            </Badge>
+          ) : null}
+        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden-input"
+          onChange={(event) => void onFile(event.target.files?.[0])}
+        />
+        <small className="backup-note">
+          {totalRecords} {t('backups.records')} · {t('backups.localOnly')}
+        </small>
       </Section>
 
       {busy && !preview ? <Spinner label={t('backups.parsing')} /> : null}
@@ -372,16 +301,6 @@ export function BackupsPage() {
         </Section>
       ) : null}
 
-      <div className="callout info">
-        <span className="callout-icon">
-          <CloudOff size={20} />
-        </span>
-        <div className="callout-text">
-          <strong>{t('backups.localOnly')}</strong>
-          <p>{t('backups.localOnlyText')}</p>
-        </div>
-      </div>
-
       <ConfirmDialog
         open={confirmMode !== null}
         danger={confirmMode === 'replace'}
@@ -393,6 +312,6 @@ export function BackupsPage() {
         onClose={() => setConfirmMode(null)}
         onConfirm={runImport}
       />
-    </div>
+    </>
   )
 }

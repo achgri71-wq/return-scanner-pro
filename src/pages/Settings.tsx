@@ -30,6 +30,7 @@ import {
   Toggle,
 } from '../components/ui'
 import { toast } from '../components/Toast'
+import { BackupSection } from './Backups'
 
 const SOUNDS: Array<{ kind: SoundKind; labelKey: 'settings.soundSuccess' | 'settings.soundRejection' | 'settings.soundWarning' | 'settings.soundDuplicate'; tone: string }> = [
   { kind: 'success', labelKey: 'settings.soundSuccess', tone: 'success' },
@@ -297,6 +298,8 @@ export function SettingsPage() {
         ) : null}
       </Section>
 
+      <BackupSection />
+
       <Section title={t('settings.about')}>
         <div className="about-grid">
           <div>
@@ -308,11 +311,6 @@ export function SettingsPage() {
             <ShieldCheck size={18} />
             <span>{t('settings.privacy')}</span>
             <strong>{t('settings.localOnly')}</strong>
-          </div>
-          <div>
-            <DatabaseBackup size={18} />
-            <span>{t('backups.last')}</span>
-            <strong>{settings.lastBackupAt ? settings.lastBackupAt.slice(0, 10) : t('backups.never')}</strong>
           </div>
         </div>
       </Section>

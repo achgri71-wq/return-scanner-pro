@@ -2,11 +2,11 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight,
+  BookOpen,
+  ClipboardList,
   Download,
   PackageCheck,
-  PackageX,
   ShieldAlert,
-  ClipboardList,
   Trash2,
 } from 'lucide-react'
 import type { ReturnParcel, ScannedCode } from '../types'
@@ -20,44 +20,27 @@ import {
   PageHeader,
   SearchField,
   Section,
-  StatCard,
+  Segmented,
 } from '../components/ui'
 import { AttemptsBadge, ParcelStatusBadge, RegistryStatusBadge } from '../components/StatusBadge'
 import { CorrectionDialog } from '../components/CorrectionDialog'
 import { toast } from '../components/Toast'
 
-type Kind = 'returned' | 'remaining' | 'notRequired'
+type Tab = 'returned' | 'remaining' | 'registry'
 
-export function ReturnedPage() {
-  return <RecordsPage kind="returned" />
-}
+const TABS: Array<{ value: Tab; labelKey: 'returned.title' | 'remaining.title' | 'registry.title' }> = [
+  { value: 'returned', labelKey: 'returned.title' },
+  { value: 'remaining', labelKey: 'remaining.title' },
+  { value: 'registry', labelKey: 'registry.title' },
+]
 
-export function RemainingPage() {
-  return <RecordsPage kind="remaining" />
-}
-
-export function NotRequiredPage() {
-  return <RecordsPage kind="notRequired" />
-}
-
-const TITLES: Record<Kind, string> = {
-  returned: 'returned.title',
-  remaining: 'remaining.title',
-  notRequired: 'notRequired.title',
-}
-
-const EMPTY: Record<Kind, [string, string]> = {
-  returned: ['returned.empty', 'returned.emptyText'],
-  remaining: ['remaining.empty', 'remaining.emptyText'],
-  notRequired: ['notRequired.empty', 'notRequired.emptyText'],
-}
-
-export function RecordsPage({ kind }: { kind: Kind }) {
+export function RecordsPage({ initialTab = 'returned' }: { initialTab?: Tab }) {
   const { t, lang } = useI18n()
   const lists = useStore((state) => state.lists)
   const parcels = useStore((state) => state.parcels)
   const registry = useStore((state) => state.registry)
   const blacklist = useStore((state) => state.blacklist)
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [query, setQuery] = useState('')
   const [listId, setListId] = useState<'all' | string>('all')
   const [correction, setCorrection] = useState<ReturnParcel | null>(null)
@@ -108,19 +91,24 @@ export function RecordsPage({ kind }: { kind: Kind }) {
     [parcels, blacklisted, listId, needle],
   )
 
-  const notRequiredRows = useMemo(
+  const registryRows = useMemo(
     () =>
       registry.filter(
         (entry) =>
-          entry.status === 'not-required' &&
           (listId === 'all' || entry.listId === listId) &&
           (!needle || entry.code.toLocaleLowerCase().includes(needle)),
       ),
     [registry, listId, needle],
   )
 
+  const counts = {
+    returned: returnedRows.length,
+    remaining: remainingRows.length,
+    registry: registryRows.length,
+  }
+
   const rows: Array<ReturnParcel | ScannedCode> =
-    kind === 'returned' ? returnedRows : kind === 'remaining' ? remainingRows : notRequiredRows
+    tab === 'returned' ? returnedRows : tab === 'remaining' ? remainingRows : registryRows
   const sorted = useMemo(
     () =>
       [...rows].sort((a, b) => {
@@ -130,33 +118,29 @@ export function RecordsPage({ kind }: { kind: Kind }) {
     [rows],
   )
 
-  const counts = {
-    returned: returnedRows.length,
-    remaining: remainingRows.length,
-    notRequired: notRequiredRows.length,
-  }
-
   const exportRows = async () => {
     try {
-      if (kind === 'notRequired') {
+      if (tab === 'registry') {
         await exportRowsXlsx(
-          t('notRequired.title'),
-          [t('records.code'), t('common.list'), t('records.attempts'), t('records.lastAttempt'), t('common.status')],
+          t('registry.title'),
+          [t('records.code'), t('common.list'), t('common.status'), t('records.attempts'), t('records.lastAttempt')],
           (rows as ScannedCode[]).map((entry) => [
             entry.code,
             listById.get(entry.listId)?.name ?? entry.listId,
-            String(entry.attempts),
-            formatDateTime(entry.lastAttemptAt, lang),
             entry.status === 'not-required'
               ? t('status.notRequired')
-              : t('status.prohibited'),
+              : entry.status === 'return-prohibited'
+                ? t('status.prohibited')
+                : t('status.requiredReturned'),
+            String(entry.attempts),
+            formatDateTime(entry.lastAttemptAt, lang),
           ]),
-          `non-demandes-${Date.now()}.xlsx`,
+          `registre-${Date.now()}.xlsx`,
           lang,
         )
       } else {
         await exportRowsXlsx(
-          t(kind === 'returned' ? 'returned.title' : 'remaining.title'),
+          t(tab === 'returned' ? 'returned.title' : 'remaining.title'),
           [
             t('records.code'),
             t('common.list'),
@@ -173,7 +157,7 @@ export function RecordsPage({ kind }: { kind: Kind }) {
             parcel.returnedBy ?? '',
             formatDateTime(parcel.addedAt, lang),
           ]),
-          `${kind}-${Date.now()}.xlsx`,
+          `${tab}-${Date.now()}.xlsx`,
           lang,
         )
       }
@@ -183,15 +167,12 @@ export function RecordsPage({ kind }: { kind: Kind }) {
     }
   }
 
-  const icon = kind === 'returned' ? PackageCheck : kind === 'remaining' ? ClipboardList : PackageX
-  const titleKey = TITLES[kind] as 'returned.title'
-  const emptyKey = EMPTY[kind][0] as 'returned.empty'
-  const emptyTextKey = EMPTY[kind][1] as 'returned.emptyText'
+  const tabs = TABS.map(({ value, labelKey }) => ({ value, label: t(labelKey), count: counts[value] }))
 
   return (
     <div className="page">
       <PageHeader
-        title={t(titleKey)}
+        title={t('nav.records')}
         actions={
           <button type="button" className="btn btn-secondary" onClick={() => void exportRows()} disabled={!rows.length}>
             <Download size={16} />
@@ -199,13 +180,6 @@ export function RecordsPage({ kind }: { kind: Kind }) {
           </button>
         }
       />
-
-      <div className="stats-grid">
-        <StatCard icon={PackageCheck} label={t('dashboard.returned')} value={counts.returned} tone="success" />
-        <StatCard icon={ClipboardList} label={t('dashboard.remaining')} value={counts.remaining} tone="warning" />
-        <StatCard icon={PackageX} label={t('dashboard.notRequired')} value={counts.notRequired} tone="info" />
-        <StatCard icon={ShieldAlert} label={t('dashboard.blacklist')} value={blacklist.length} tone="danger" />
-      </div>
 
       <Section>
         <div className="toolbar">
@@ -219,14 +193,20 @@ export function RecordsPage({ kind }: { kind: Kind }) {
             ))}
           </select>
         </div>
+      </Section>
 
+      <div className="section-head">
+        <Segmented value={tab} options={tabs} onChange={setTab} />
+      </div>
+
+      <Section>
         {sorted.length ? (
           <div className="record-list">
             {sorted.slice(0, 400).map((row) => {
               const parcel = row as ReturnParcel
               const entry = row as ScannedCode
               const list = listById.get(parcel.listId || entry.listId)
-              if (kind === 'notRequired') {
+              if (tab === 'registry') {
                 return (
                   <div className="record-row" key={entry.id}>
                     <div className="record-main">
@@ -267,14 +247,14 @@ export function RecordsPage({ kind }: { kind: Kind }) {
                       {parcel.returnedBy ? ` · ${parcel.returnedBy}` : ''}
                     </small>
                   </div>
-                  {kind === 'remaining' && blacklisted.has(parcel.code) ? (
+                  {tab === 'remaining' && blacklisted.has(parcel.code) ? (
                     <Badge tone="danger" dot>
                       {t('status.prohibited')}
                     </Badge>
                   ) : (
                     <ParcelStatusBadge status={parcel.status} />
                   )}
-                  {kind === 'returned' && parcel.status === 'returned' ? (
+                  {tab === 'returned' && parcel.status === 'returned' ? (
                     <button
                       type="button"
                       className="icon-btn danger"
@@ -302,7 +282,17 @@ export function RecordsPage({ kind }: { kind: Kind }) {
             })}
           </div>
         ) : (
-          <EmptyState icon={icon} title={t(emptyKey)} text={t(emptyTextKey)} />
+          <EmptyState
+            icon={tab === 'returned' ? PackageCheck : tab === 'remaining' ? ClipboardList : BookOpen}
+            title={t(tab === 'returned' ? 'returned.empty' : tab === 'remaining' ? 'remaining.empty' : 'registry.title')}
+            text={
+              tab === 'returned'
+                ? t('returned.emptyText')
+                : tab === 'remaining'
+                  ? t('remaining.emptyText')
+                  : t('common.noData')
+            }
+          />
         )}
       </Section>
 

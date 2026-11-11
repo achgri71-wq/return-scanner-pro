@@ -4,18 +4,14 @@ import {
   ArrowLeftRight,
   BadgeAlert,
   BarChart3,
-  BookOpen,
   ClipboardList,
   Cloud,
   CloudOff,
-  DatabaseBackup,
   History,
   Languages,
   ListChecks,
   Menu,
   Moon,
-  PackageCheck,
-  PackageX,
   ScanLine,
   Search,
   Settings as SettingsIcon,
@@ -59,14 +55,10 @@ export function Layout() {
   ]
 
   const secondary: NavItem[] = [
-    { to: '/returned', label: t('nav.returned'), icon: PackageCheck },
-    { to: '/remaining', label: t('nav.remaining'), icon: ClipboardList },
-    { to: '/not-required', label: t('nav.notRequired'), icon: PackageX },
+    { to: '/records', label: t('nav.records'), icon: ClipboardList },
     { to: '/blacklist', label: t('nav.blacklist'), icon: BadgeAlert },
-    { to: '/registry', label: t('nav.registry'), icon: BookOpen },
     { to: '/reports', label: t('nav.reports'), icon: BarChart3 },
     { to: '/employees', label: t('nav.employees'), icon: Users },
-    { to: '/backups', label: t('nav.backups'), icon: DatabaseBackup },
     { to: '/audit', label: t('nav.audit'), icon: History },
     { to: '/settings', label: t('nav.settings'), icon: SettingsIcon },
   ]
@@ -254,14 +246,10 @@ export function MorePage() {
   const { t } = useI18n()
 
   const items = [
-    { to: '/returned', label: t('returned.title'), icon: PackageCheck, tone: 'green' },
-    { to: '/remaining', label: t('remaining.title'), icon: ClipboardList, tone: 'amber' },
-    { to: '/not-required', label: t('notRequired.title'), icon: PackageX, tone: 'orange' },
+    { to: '/records', label: t('nav.records'), icon: ClipboardList, tone: 'blue' },
     { to: '/blacklist', label: t('blacklist.title'), icon: ShieldAlert, tone: 'red' },
-    { to: '/registry', label: t('registry.title'), icon: BookOpen, tone: 'blue' },
     { to: '/reports', label: t('reports.title'), icon: BarChart3, tone: 'violet' },
     { to: '/employees', label: t('employees.title'), icon: Users, tone: 'cyan' },
-    { to: '/backups', label: t('backups.title'), icon: DatabaseBackup, tone: 'indigo' },
     { to: '/audit', label: t('audit.title'), icon: History, tone: 'slate' },
     { to: '/settings', label: t('settings.title'), icon: SettingsIcon, tone: 'slate' },
   ]

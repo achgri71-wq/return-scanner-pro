@@ -11,12 +11,10 @@ import { ListsPage } from './pages/Lists'
 import { ListDetailPage } from './pages/ListDetail'
 import { ScanPage } from './pages/Scan'
 import { SearchPage } from './pages/Search'
-import { ReturnedPage, RemainingPage, NotRequiredPage } from './pages/Records'
+import { RecordsPage } from './pages/Records'
 import { BlacklistPage } from './pages/Blacklist'
-import { RegistryPage } from './pages/Registry'
 import { ReportsPage } from './pages/Reports'
 import { EmployeesPage } from './pages/Employees'
-import { BackupsPage } from './pages/Backups'
 import { SettingsPage } from './pages/Settings'
 import { AuditPage } from './pages/Audit'
 
@@ -76,14 +74,14 @@ export default function App() {
           <Route path="lists/:listId" element={<ListDetailPage />} />
           <Route path="scan" element={<ScanPage />} />
           <Route path="search" element={<SearchPage />} />
-          <Route path="returned" element={<ReturnedPage />} />
-          <Route path="remaining" element={<RemainingPage />} />
-          <Route path="not-required" element={<NotRequiredPage />} />
+          <Route path="returned" element={<Navigate to="/records" replace />} />
+          <Route path="remaining" element={<Navigate to="/records" replace />} />
+          <Route path="not-required" element={<Navigate to="/records" replace />} />
+          <Route path="records" element={<RecordsPage />} />
+          <Route path="backups" element={<Navigate to="/settings" replace />} />
           <Route path="blacklist" element={<BlacklistPage />} />
-          <Route path="registry" element={<RegistryPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="employees" element={<EmployeesPage />} />
-          <Route path="backups" element={<BackupsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="audit" element={<AuditPage />} />
           <Route path="more" element={<MorePage />} />
