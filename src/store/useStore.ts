@@ -131,6 +131,7 @@ interface StoreState extends AppData {
   switchList: (listId: string) => SimpleResult
   reopenList: (listId: string) => SimpleResult
   archiveList: (listId: string) => SimpleResult
+  deleteList: (listId: string) => SimpleResult
   renameList: (listId: string, name: string) => SimpleResult
   updateListNotes: (listId: string, notes: string) => SimpleResult
   scan: (raw: string, source: ScanSource, scanId?: string) => ScanOutcome
@@ -659,6 +660,38 @@ export const useStore = create<StoreState>((set, get) => {
       }))
       if (state.settings.activeListId === list.id) get().setSettings({ activeListId: null })
       persist({ lists: [updated], audit: [entry] })
+      return { ok: true }
+    },
+
+    deleteList: (listId) => {
+      const state = get()
+      const list = state.lists.find((item) => item.id === listId)
+      if (!list) return { ok: false, error: 'list-not-found' }
+      const parcelIds = state.parcels
+        .filter((item) => item.listId === listId)
+        .map((item) => item.id)
+      const registryIds = state.registry
+        .filter((item) => item.listId === listId)
+        .map((item) => item.id)
+      const eventIds = state.events
+        .filter((item) => item.listId === listId)
+        .map((item) => item.id)
+      const entry = audit(state, 'list-delete', `${list.name} (${parcelIds.length} codes)`, listId)
+      set((current) => ({
+        lists: current.lists.filter((item) => item.id !== listId),
+        parcels: current.parcels.filter((item) => item.listId !== listId),
+        registry: current.registry.filter((item) => item.listId !== listId),
+        events: current.events.filter((item) => item.listId !== listId),
+        audit: [entry, ...current.audit],
+      }))
+      if (state.settings.activeListId === listId) get().setSettings({ activeListId: null })
+      persist({
+        deleteLists: [listId],
+        deleteParcels: parcelIds,
+        deleteRegistry: registryIds,
+        deleteEvents: eventIds,
+        audit: [entry],
+      })
       return { ok: true }
     },
 

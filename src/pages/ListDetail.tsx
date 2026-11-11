@@ -20,6 +20,7 @@ import {
   Upload,
   XCircle,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { useI18n, errorKey } from '../i18n'
 import {
@@ -44,6 +45,7 @@ import {
   Section,
   Segmented,
   StatCard,
+  ConfirmDialog,
 } from '../components/ui'
 import {
   AttemptsBadge,
@@ -62,6 +64,7 @@ type CodeFilter = 'all' | 'pending' | 'returned'
 export function ListDetailPage() {
   const { listId } = useParams<{ listId: string }>()
   const { t, lang } = useI18n()
+  const navigate = useNavigate()
 
   const lists = useStore((state) => state.lists)
   const parcels = useStore((state) => state.parcels)
@@ -88,6 +91,7 @@ export function ListDetailPage() {
   const [notesDraft, setNotesDraft] = useState('')
   const [showRename, setShowRename] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [correctionParcel, setCorrectionParcel] = useState<string | null>(null)
 
   const list = lists.find((item) => item.id === listId)
@@ -184,6 +188,16 @@ export function ListDetailPage() {
       return
     }
     toast(t('toast.listArchived'))
+  }
+
+  const doDelete = () => {
+    const result = useStore.getState().deleteList(list.id)
+    if (!result.ok) {
+      toast(t(errorKey(result.error)), 'error')
+      return
+    }
+    toast(t('toast.listDeleted'))
+    navigate('/lists')
   }
 
   const exportList = async () => {
@@ -367,6 +381,9 @@ export function ListDetailPage() {
                   <Archive size={15} /> {t('lists.archive')}
                 </button>
               ) : null}
+              <button type="button" className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(true)}>
+                <Trash2 size={15} /> {t('lists.delete')}
+              </button>
             </div>
           </div>
         </div>
@@ -480,6 +497,17 @@ export function ListDetailPage() {
         open={Boolean(correctionParcel)}
         parcel={activeCorrection}
         onClose={() => setCorrectionParcel(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmDelete}
+        danger
+        title={t('lists.delete')}
+        message={t('lists.deleteConfirm', { name: list.name })}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={doDelete}
       />
 
       <Modal

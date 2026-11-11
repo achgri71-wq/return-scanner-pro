@@ -352,6 +352,23 @@ describe('direct scanning and list closure', () => {
     expect(state.events.some((item) => item.code === 'D-01' && item.listId === listId)).toBe(false)
     expect(state.audit.some((entry) => entry.action === 'code-delete')).toBe(true)
   })
+
+  it('deletes a whole list with all its content and clears the active selection', () => {
+    const a = createList('Doomed', ['X-01', 'X-02'])
+    activate(a)
+    useStore.getState().scan('X-01', 'manual')
+
+    const result = useStore.getState().deleteList(a)
+    expect(result.ok).toBe(true)
+
+    const state = useStore.getState()
+    expect(state.lists.some((item) => item.id === a)).toBe(false)
+    expect(state.parcels.some((item) => item.listId === a)).toBe(false)
+    expect(state.registry.some((item) => item.listId === a)).toBe(false)
+    expect(state.events.some((item) => item.listId === a)).toBe(false)
+    expect(state.settings.activeListId).toBeNull()
+    expect(state.audit.some((entry) => entry.action === 'list-delete')).toBe(true)
+  })
 })
 
 describe('replace import and correction', () => {

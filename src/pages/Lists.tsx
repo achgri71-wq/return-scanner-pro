@@ -9,6 +9,7 @@ import {
   FilePlus2,
   ListChecks,
   Plus,
+  Trash2,
   Upload,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
@@ -17,7 +18,7 @@ import { blacklistCodeSet, computeListStats } from '../lib/stats'
 import { formatPercent, relativeTime } from '../lib/utils'
 import { exportListXlsx } from '../lib/export'
 import { parseCodeBlob } from '../lib/codes'
-import { Badge, EmptyState, Modal, PageHeader, ProgressBar, SearchField, Section, Segmented, Spinner } from '../components/ui'
+import { Badge, ConfirmDialog, EmptyState, Modal, PageHeader, ProgressBar, SearchField, Section, Segmented, Spinner } from '../components/ui'
 import { ListSourceBadge, ListStatusBadge } from '../components/StatusBadge'
 import { ImportWizard } from '../components/ImportWizard'
 import { toast } from '../components/Toast'
@@ -45,6 +46,7 @@ export function ListsPage() {
   const [createError, setCreateError] = useState('')
   const [creating, setCreating] = useState(false)
   const [addCodesTarget, setAddCodesTarget] = useState<ReturnList | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<ReturnList | null>(null)
   const [quickCodes, setQuickCodes] = useState('')
 
   const blacklisted = useMemo(() => blacklistCodeSet(blacklist), [blacklist])
@@ -83,6 +85,17 @@ export function ListsPage() {
       return
     }
     toast(t('toast.listActivated'))
+  }
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return
+    const result = useStore.getState().deleteList(deleteTarget.id)
+    setDeleteTarget(null)
+    if (!result.ok) {
+      toast(t(errorKey(result.error)), 'error')
+      return
+    }
+    toast(t('toast.listDeleted'))
   }
 
   const submitNew = () => {
@@ -231,6 +244,14 @@ export function ListsPage() {
                   >
                     <Download size={16} />
                   </button>
+                  <button
+                    type="button"
+                    className="icon-btn danger"
+                    title={t('lists.delete')}
+                    onClick={() => setDeleteTarget(list)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
                   {list.status === 'completed' ? (
                     <span className="icon-btn" title={t('lists.archive')}>
                       <Archive size={16} />
@@ -301,6 +322,17 @@ export function ListsPage() {
         </div>
         {createError ? <div className="inline-alert danger">{createError}</div> : null}
       </Modal>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        danger
+        title={t('lists.delete')}
+        message={t('lists.deleteConfirm', { name: deleteTarget?.name ?? '' })}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+      />
 
       <ImportWizard
         open={showImport}
