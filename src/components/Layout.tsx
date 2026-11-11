@@ -211,6 +211,21 @@ export function Layout() {
                 ? location.pathname === '/'
                 : location.pathname === item.to ||
                   (item.to === '/lists' && location.pathname.startsWith('/lists'))
+          if (item.to === '/scan') {
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={cx('bottom-scan', active && 'is-active')}
+              >
+                <span className="bottom-scan-circle">
+                  <Icon size={25} />
+                </span>
+                <span>{item.label}</span>
+              </NavLink>
+            )
+          }
           return (
             <NavLink
               key={item.to}

@@ -1,18 +1,15 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import {
   AlertCircle,
   ArrowRight,
   BadgeAlert,
-  BarChart3,
   ClipboardList,
   CloudDownload,
   ListChecks,
   PackageCheck,
-  PackageOpen,
   PlayCircle,
   ScanLine,
-  Search,
   Sparkles,
 } from 'lucide-react'
 import { useActiveList, useStore } from '../store/useStore'
@@ -26,7 +23,6 @@ import { toast } from '../components/Toast'
 
 export function DashboardPage() {
   const { t, lang } = useI18n()
-  const navigate = useNavigate()
   const lists = useStore((state) => state.lists)
   const parcels = useStore((state) => state.parcels)
   const registry = useStore((state) => state.registry)
@@ -79,18 +75,6 @@ export function DashboardPage() {
         eyebrow={t('nav.home')}
         title={t('dashboard.title')}
         subtitle={t('dashboard.subtitle')}
-        actions={
-          <>
-            <Link to="/lists" className="btn btn-secondary">
-              <ListChecks size={16} />
-              {t('nav.lists')}
-            </Link>
-            <Link to="/scan" className="btn btn-primary">
-              <ScanLine size={16} />
-              {t('nav.scan')}
-            </Link>
-          </>
-        }
       />
 
       {backupDue ? (
@@ -149,135 +133,76 @@ export function DashboardPage() {
         />
       </div>
 
-      <div className="dashboard-grid">
-        <Section
-          title={t('dashboard.activeList')}
-          actions={
-            activeList ? (
-              <Link to={`/lists/${activeList.id}`} className="link-btn">
-                {t('common.details')} <ArrowRight size={14} />
-              </Link>
-            ) : null
-          }
-          className="active-list-card"
-        >
-          {activeList && activeStats ? (
-            <>
-              <div className="active-list-head">
-                <div>
-                  <div className="active-list-name">{activeList.name}</div>
-                  <div className="active-list-meta">
-                    <Badge tone="success" dot>
-                      {t('status.active')}
-                    </Badge>
-                    <span>{activeList.id}</span>
-                  </div>
-                </div>
-                <div className="active-list-progress">
-                  <strong>{formatPercent(progress, lang)}</strong>
-                  <span>
-                    {t('dashboard.progressOf', {
-                      done: activeStats.returned,
-                      total: activeStats.total,
-                    })}
-                  </span>
-                </div>
-              </div>
-              <ProgressBar value={progress} tone={progress >= 1 ? 'success' : 'accent'} />
-              <div className="active-list-mini">
-                <span>
-                  <PackageCheck size={15} /> {activeStats.returned} {t('dashboard.returned')}
-                </span>
-                <span>
-                  <ClipboardList size={15} /> {activeStats.remaining} {t('dashboard.remaining')}
-                </span>
-                {openSession ? (
+      <Section
+        title={t('dashboard.activeList')}
+        actions={
+          activeList ? (
+            <Link to={`/lists/${activeList.id}`} className="link-btn">
+              {t('common.details')} <ArrowRight size={14} />
+            </Link>
+          ) : null
+        }
+        className="active-list-card"
+      >
+        {activeList && activeStats ? (
+          <>
+            <div className="active-list-head">
+              <div>
+                <div className="active-list-name">{activeList.name}</div>
+                <div className="active-list-meta">
                   <Badge tone="success" dot>
-                    {openSession.employeeName || t('dashboard.openSession')}
+                    {t('status.active')}
                   </Badge>
-                ) : null}
+                  {openSession ? (
+                    <Badge tone="info" dot>
+                      {openSession.employeeName || t('dashboard.openSession')}
+                    </Badge>
+                  ) : null}
+                </div>
               </div>
-              <div className="active-list-actions">
-                {openSession ? (
-                  <Link to="/scan" className="btn btn-primary">
-                    <ScanLine size={16} />
-                    {t('dashboard.resumeSession')}
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => setSessionList(activeList.id)}
-                  >
-                    <PlayCircle size={16} />
-                    {t('dashboard.startSession')}
-                  </button>
-                )}
-                <Link to="/scan" className="btn btn-secondary">
-                  <PackageOpen size={16} />
-                  {t('dashboard.openScan')}
-                </Link>
+              <div className="active-list-progress">
+                <strong>{formatPercent(progress, lang)}</strong>
+                <span>
+                  {t('dashboard.progressOf', {
+                    done: activeStats.returned,
+                    total: activeStats.total,
+                  })}
+                </span>
               </div>
-            </>
-          ) : (
-            <EmptyState
-              icon={Sparkles}
-              title={t('dashboard.noActive')}
-              text={t('dashboard.noActiveText')}
-              action={
-                <Link to="/lists" className="btn btn-primary">
-                  <ListChecks size={16} />
-                  {t('dashboard.chooseList')}
+            </div>
+            <ProgressBar value={progress} tone={progress >= 1 ? 'success' : 'accent'} />
+            <div className="hero-cta-row">
+              {openSession ? (
+                <Link to="/scan" className="btn btn-primary hero-cta">
+                  <ScanLine size={19} />
+                  {t('dashboard.resumeSession')}
                 </Link>
-              }
-            />
-          )}
-        </Section>
-
-        <Section title={t('dashboard.quickActions')} className="quick-card">
-          <div className="quick-actions">
-            <button type="button" className="quick-action" onClick={() => navigate('/scan')}>
-              <span className="quick-icon tone-scan">
-                <ScanLine size={20} />
-              </span>
-              <span>{t('nav.scan')}</span>
-              {!openSession ? <small>{t('toast.sessionNeeded')}</small> : null}
-            </button>
-            <button type="button" className="quick-action" onClick={() => navigate('/search')}>
-              <span className="quick-icon tone-search">
-                <Search size={20} />
-              </span>
-              <span>{t('nav.search')}</span>
-            </button>
-            <button type="button" className="quick-action" onClick={() => navigate('/reports')}>
-              <span className="quick-icon tone-report">
-                <BarChart3 size={20} />
-              </span>
-              <span>{t('nav.reports')}</span>
-            </button>
-            <button type="button" className="quick-action" onClick={() => navigate('/lists')}>
-              <span className="quick-icon tone-list">
-                <ListChecks size={20} />
-              </span>
-              <span>{t('nav.lists')}</span>
-            </button>
-          </div>
-          <div className="mini-stats">
-            <div>
-              <strong>{stats.totalLists}</strong>
-              <span>{t('dashboard.lists')}</span>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-primary hero-cta"
+                  onClick={() => setSessionList(activeList.id)}
+                >
+                  <PlayCircle size={19} />
+                  {t('dashboard.startSession')}
+                </button>
+              )}
             </div>
-            <div>
-              <strong>{stats.notRequired}</strong>
-              <span>{t('dashboard.notRequired')}</span>
-            </div>
-            <div>
-              <strong>{stats.repeatedAttempts}</strong>
-              <span>{t('dashboard.attempts')}</span>
-            </div>
-          </div>
-        </Section>
-      </div>
+          </>
+        ) : (
+          <EmptyState
+            icon={Sparkles}
+            title={t('dashboard.noActive')}
+            text={t('dashboard.noActiveText')}
+            action={
+              <Link to="/lists" className="btn btn-primary hero-cta">
+                <ListChecks size={19} />
+                {t('dashboard.chooseList')}
+              </Link>
+            }
+          />
+        )}
+      </Section>
 
       {!lists.length ? (
         <Section title={t('dashboard.startHere')}>

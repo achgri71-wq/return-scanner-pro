@@ -361,4 +361,4 @@ return-scanner-pro/
 - **The admin PIN is local only**, not encryption or real access control.
 - **The main JS bundle is ~1.0 MB** (276 kB gzip) and triggers Vite's 500 kB chunk warning. It is precached and works offline; route-level code splitting is a possible future optimisation.
 - **Browser target:** modern evergreen browsers. The stylesheet uses `color-mix()` and CSS logical properties.
-- **Service worker updates** use the generated prompt registration; there is no custom "new version available" UI in this release.
+- **Service worker updates** are applied automatically (`registerType: 'auto'`): the new version activates in the background and is used on the next navigation, with no manual prompt.
