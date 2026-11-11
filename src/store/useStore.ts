@@ -147,6 +147,9 @@ interface StoreState extends AppData {
     patch: Partial<Pick<Employee, 'name' | 'phone' | 'role' | 'active'>>,
   ) => SimpleResult
   correctReturn: (request: CorrectionRequest) => SimpleResult
+  deleteParcel: (listId: string, parcelId: string) => SimpleResult
+  deleteRegistryEntry: (id: string) => SimpleResult
+  deleteEvent: (id: string) => SimpleResult
   createBackup: () => BackupPayload
   markBackupExported: () => void
   restoreBackup: (payload: unknown, mode: 'merge' | 'replace') => RestoreResult
@@ -1179,6 +1182,86 @@ export const useStore = create<StoreState>((set, get) => {
         parcels: [updated],
         lists: reopenedList ? [reopenedList] : undefined,
         deleteRegistry: registry ? [registry.id] : undefined,
+        audit: [entry],
+      })
+      return { ok: true }
+    },
+
+    deleteParcel: (listId, parcelId) => {
+      const state = get()
+      const parcel = state.parcels.find((item) => item.id === parcelId && item.listId === listId)
+      if (!parcel) return { ok: false, error: 'not-found' }
+      const list = state.lists.find((item) => item.id === listId)
+      const registryIds = state.registry
+        .filter((item) => item.listId === listId && item.code === parcel.code)
+        .map((item) => item.id)
+      const eventIds = state.events
+        .filter((item) => item.listId === listId && item.code === parcel.code)
+        .map((item) => item.id)
+      const entry = audit(
+        state,
+        'code-delete',
+        `${parcel.code} — ${list?.name ?? listId}`,
+        parcel.code,
+      )
+      set((current) => ({
+        parcels: current.parcels.filter((item) => item.id !== parcelId),
+        registry: current.registry.filter((item) => !registryIds.includes(item.id)),
+        events: current.events.filter((item) => !eventIds.includes(item.id)),
+        audit: [entry, ...current.audit],
+      }))
+      persist({
+        deleteParcels: [parcelId],
+        deleteRegistry: registryIds,
+        deleteEvents: eventIds,
+        audit: [entry],
+      })
+      return { ok: true }
+    },
+
+    deleteRegistryEntry: (id) => {
+      const state = get()
+      const target = state.registry.find((item) => item.id === id)
+      if (!target) return { ok: false, error: 'not-found' }
+      const list = state.lists.find((item) => item.id === target.listId)
+      const eventIds = state.events
+        .filter((item) => item.listId === target.listId && item.code === target.code)
+        .map((item) => item.id)
+      const entry = audit(
+        state,
+        'code-delete',
+        `${target.code} — ${list?.name ?? target.listId}`,
+        target.code,
+      )
+      set((current) => ({
+        registry: current.registry.filter((item) => item.id !== id),
+        events: current.events.filter((item) => !eventIds.includes(item.id)),
+        audit: [entry, ...current.audit],
+      }))
+      persist({
+        deleteRegistry: [id],
+        deleteEvents: eventIds,
+        audit: [entry],
+      })
+      return { ok: true }
+    },
+
+    deleteEvent: (id) => {
+      const state = get()
+      const target = state.events.find((item) => item.id === id)
+      if (!target) return { ok: false, error: 'not-found' }
+      const entry = audit(
+        state,
+        'code-delete',
+        `${target.code} — ${target.listName} (${target.result})`,
+        target.code,
+      )
+      set((current) => ({
+        events: current.events.filter((item) => item.id !== id),
+        audit: [entry, ...current.audit],
+      }))
+      persist({
+        deleteEvents: [id],
         audit: [entry],
       })
       return { ok: true }

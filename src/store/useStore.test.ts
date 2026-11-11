@@ -331,6 +331,27 @@ describe('direct scanning and list closure', () => {
     const stats = computeListStats(listId, state.parcels, blacklistCodeSet(state.blacklist))
     expect(stats).toMatchObject({ total: 3, returned: 1, remaining: 2, pending: 2 })
   })
+
+  it('deletes a code with its registry rows and events', () => {
+    const listId = createList('Deletable', ['D-01', 'D-02'])
+    activate(listId)
+    useStore.getState().scan('D-01', 'manual')
+    useStore.getState().scan('GHOST-X', 'manual')
+
+    const stateBefore = useStore.getState()
+    const parcel = stateBefore.parcels.find((item) => item.code === 'D-01')!
+    expect(codeRows('D-01', listId)).toHaveLength(1)
+    expect(stateBefore.events.some((item) => item.code === 'D-01')).toBe(true)
+
+    const result = useStore.getState().deleteParcel(listId, parcel.id)
+    expect(result.ok).toBe(true)
+
+    const state = useStore.getState()
+    expect(state.parcels.some((item) => item.id === parcel.id)).toBe(false)
+    expect(codeRows('D-01', listId)).toHaveLength(0)
+    expect(state.events.some((item) => item.code === 'D-01' && item.listId === listId)).toBe(false)
+    expect(state.audit.some((entry) => entry.action === 'code-delete')).toBe(true)
+  })
 })
 
 describe('replace import and correction', () => {

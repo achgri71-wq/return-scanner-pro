@@ -16,6 +16,7 @@ import {
   ScanLine,
   Search,
   ShieldAlert,
+  Trash2,
   Upload,
   XCircle,
 } from 'lucide-react'
@@ -205,6 +206,24 @@ export function ListDetailPage() {
     toast(t('toast.codesAdded', { count: result.summary.imported }))
     setQuickCodes('')
     setShowAddCodes(false)
+  }
+
+  const deleteCode = (parcelId: string) => {
+    const result = useStore.getState().deleteParcel(list.id, parcelId)
+    if (!result.ok) {
+      toast(t(errorKey(result.error)), 'error')
+      return
+    }
+    toast(t('toast.codeDeleted'))
+  }
+
+  const deleteRegistryRow = (id: string) => {
+    const result = useStore.getState().deleteRegistryEntry(id)
+    if (!result.ok) {
+      toast(t(errorKey(result.error)), 'error')
+      return
+    }
+    toast(t('toast.codeDeleted'))
   }
 
   const tabs: Array<{ value: Tab; label: string; count: number }> = [
@@ -400,6 +419,14 @@ export function ListDetailPage() {
                         <ShieldAlert size={16} />
                       </button>
                     ) : null}
+                    <button
+                      type="button"
+                      className="icon-btn danger"
+                      title={t('common.delete')}
+                      onClick={() => deleteCode(parcel.id)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -425,6 +452,14 @@ export function ListDetailPage() {
                   </div>
                   <RegistryStatusBadge status={entry.status} />
                   <AttemptsBadge count={entry.attempts} />
+                  <button
+                    type="button"
+                    className="icon-btn danger"
+                    title={t('common.delete')}
+                    onClick={() => deleteRegistryRow(entry.id)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               ))}
             </div>

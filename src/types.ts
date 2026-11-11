@@ -99,6 +99,7 @@ export type AuditAction =
   | 'list-reopen'
   | 'list-archive'
   | 'return-correction'
+  | 'code-delete'
   | 'blacklist-add'
   | 'blacklist-update'
   | 'blacklist-remove'

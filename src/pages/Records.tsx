@@ -7,10 +7,11 @@ import {
   PackageX,
   ShieldAlert,
   ClipboardList,
+  Trash2,
 } from 'lucide-react'
 import type { ReturnParcel, ScannedCode } from '../types'
 import { useStore } from '../store/useStore'
-import { useI18n } from '../i18n'
+import { useI18n, errorKey } from '../i18n'
 import { formatDateTime, relativeTime } from '../lib/utils'
 import { exportRowsXlsx } from '../lib/export'
 import {
@@ -60,6 +61,24 @@ export function RecordsPage({ kind }: { kind: Kind }) {
   const [query, setQuery] = useState('')
   const [listId, setListId] = useState<'all' | string>('all')
   const [correction, setCorrection] = useState<ReturnParcel | null>(null)
+
+  const deleteParcelRow = (parcelId: string, rowListId: string) => {
+    const result = useStore.getState().deleteParcel(rowListId, parcelId)
+    if (!result.ok) {
+      toast(t(errorKey(result.error)), 'error')
+      return
+    }
+    toast(t('toast.codeDeleted'))
+  }
+
+  const deleteRegistryRow = (id: string) => {
+    const result = useStore.getState().deleteRegistryEntry(id)
+    if (!result.ok) {
+      toast(t(errorKey(result.error)), 'error')
+      return
+    }
+    toast(t('toast.codeDeleted'))
+  }
 
   const listById = useMemo(() => new Map(lists.map((list) => [list.id, list])), [lists])
   const blacklisted = useMemo(() => new Set(blacklist.map((entry) => entry.code)), [blacklist])
@@ -220,6 +239,14 @@ export function RecordsPage({ kind }: { kind: Kind }) {
                     </div>
                     <RegistryStatusBadge status={blacklisted.has(entry.code) ? 'return-prohibited' : entry.status} />
                     <AttemptsBadge count={entry.attempts} />
+                    <button
+                      type="button"
+                      className="icon-btn danger"
+                      title={t('common.delete')}
+                      onClick={() => deleteRegistryRow(entry.id)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
                     {list ? (
                       <Link to={`/lists/${list.id}`} className="icon-btn" title={t('search.openList')}>
                         <ArrowRight size={16} />
@@ -257,6 +284,14 @@ export function RecordsPage({ kind }: { kind: Kind }) {
                       <ShieldAlert size={16} />
                     </button>
                   ) : null}
+                  <button
+                    type="button"
+                    className="icon-btn danger"
+                    title={t('common.delete')}
+                    onClick={() => deleteParcelRow(parcel.id, parcel.listId)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
                   {list ? (
                     <Link to={`/lists/${list.id}`} className="icon-btn" title={t('search.openList')}>
                       <ArrowRight size={16} />

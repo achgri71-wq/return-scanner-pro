@@ -14,6 +14,7 @@ import {
   RotateCcw,
   ScanLine,
   ShieldAlert,
+  Trash2,
   Volume2,
   VolumeX,
   XCircle,
@@ -152,6 +153,15 @@ export function ScanPage() {
       return
     }
     toast(t('toast.listActivated'))
+  }
+
+  const deleteRecentEvent = (id: string) => {
+    const result = useStore.getState().deleteEvent(id)
+    if (!result.ok) {
+      toast(t(errorKey(result.error)), 'error')
+      return
+    }
+    toast(t('toast.eventDeleted'))
   }
 
   const scanValue = (source: 'manual' | 'hid') => {
@@ -379,6 +389,14 @@ export function ScanPage() {
                         <small>{relativeTime(event.at, lang)}</small>
                       </div>
                       <ScanResultBadge result={event.result} />
+                      <button
+                        type="button"
+                        className="icon-btn danger"
+                        title={t('common.delete')}
+                        onClick={() => deleteRecentEvent(event.id)}
+                      >
+                        <Trash2 size={15} />
+                      </button>
                     </div>
                   ))}
                 </div>
