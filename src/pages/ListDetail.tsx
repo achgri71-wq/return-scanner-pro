@@ -301,7 +301,8 @@ export function ListDetailPage() {
       </div>
 
       <PageHeader
-        eyebrow={
+        title={list.name}
+        subtitle={
           <span className="inline-badges">
             <ListStatusBadge status={list.status} />
             <ListSourceBadge source={list.source} />
@@ -315,13 +316,10 @@ export function ListDetailPage() {
                 {t('lists.sessionOpen')}
               </Badge>
             ) : null}
-          </span>
-        }
-        title={list.name}
-        subtitle={
-          <span className="detail-subtitle">
-            {list.id} · {t('lists.createdAt')} {formatDateTime(list.createdAt, lang)}
-            {list.lastScanAt ? ` · ${t('lists.lastScan')} ${relativeTime(list.lastScanAt, lang)}` : ''}
+            <span className="detail-subtitle">
+              {list.id} · {t('lists.createdAt')} {formatDateTime(list.createdAt, lang)}
+              {list.lastScanAt ? ` · ${t('lists.lastScan')} ${relativeTime(list.lastScanAt, lang)}` : ''}
+            </span>
           </span>
         }
         actions={

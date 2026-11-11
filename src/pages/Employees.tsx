@@ -135,7 +135,6 @@ export function EmployeesPage() {
     <div className="page">
       <PageHeader
         title={t('employees.title')}
-        subtitle={t('employees.subtitle')}
         actions={
           <button type="button" className="btn btn-primary" onClick={openAdd}>
             <Plus size={16} />

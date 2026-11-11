@@ -259,9 +259,6 @@ function SideLink({ item }: { item: NavItem }) {
 
 export function MorePage() {
   const { t } = useI18n()
-  const online = useOnline()
-  const settings = useStore((state) => state.settings)
-  const setSettings = useStore((state) => state.setSettings)
 
   const items = [
     { to: '/returned', label: t('returned.title'), icon: PackageCheck, tone: 'green' },
@@ -281,7 +278,6 @@ export function MorePage() {
       <header className="page-head">
         <div className="page-head-text">
           <h1>{t('nav.more')}</h1>
-          <p>{t('app.tagline')}</p>
         </div>
       </header>
 
@@ -300,34 +296,6 @@ export function MorePage() {
       </div>
 
       <div className="card more-card">
-        <div className="more-row">
-          <span className="more-row-icon">
-            {online ? <Wifi size={18} /> : <WifiOff size={18} />}
-          </span>
-          <div>
-            <strong>{online ? t('app.online') : t('app.offline')}</strong>
-            <small>{t('settings.offlineReady')}</small>
-          </div>
-          <Badge tone={online ? 'success' : 'warning'} dot>
-            {online ? t('common.on') : t('common.off')}
-          </Badge>
-        </div>
-        <div className="more-row">
-          <span className="more-row-icon">
-            <Languages size={18} />
-          </span>
-          <div>
-            <strong>{t('settings.language')}</strong>
-            <small>{settings.lang === 'fr' ? 'Français' : 'العربية'}</small>
-          </div>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => setSettings({ lang: settings.lang === 'fr' ? 'ar' : 'fr' })}
-          >
-            {settings.lang === 'fr' ? 'العربية' : 'Français'}
-          </button>
-        </div>
         <div className="more-row">
           <span className="more-row-icon">
             <Archive size={18} />

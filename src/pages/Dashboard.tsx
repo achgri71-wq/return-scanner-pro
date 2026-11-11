@@ -71,11 +71,7 @@ export function DashboardPage() {
 
   return (
     <div className="page dashboard">
-      <PageHeader
-        eyebrow={t('nav.home')}
-        title={t('dashboard.title')}
-        subtitle={t('dashboard.subtitle')}
-      />
+      <PageHeader title={t('dashboard.title')} />
 
       {backupDue ? (
         <div className="callout warning">

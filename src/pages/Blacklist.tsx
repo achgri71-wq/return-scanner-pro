@@ -109,7 +109,6 @@ export function BlacklistPage() {
     <div className="page">
       <PageHeader
         title={t('blacklist.title')}
-        subtitle={t('blacklist.subtitle')}
         actions={
           <>
             <button type="button" className="btn btn-secondary" onClick={() => void exportList()} disabled={!blacklist.length}>

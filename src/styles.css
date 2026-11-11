@@ -53,7 +53,7 @@
   --radius-xl: 26px;
 
   --sidebar-w: 248px;
-  --topbar-h: 64px;
+  --topbar-h: 56px;
   --bottom-nav-h: 66px;
   --content-max: 1360px;
 
@@ -463,7 +463,7 @@ pre {
   align-items: center;
   gap: 12px;
   min-height: var(--topbar-h);
-  padding: max(8px, env(safe-area-inset-top)) 14px 8px;
+  padding: max(6px, env(safe-area-inset-top)) 12px 6px;
   background: color-mix(in srgb, var(--bg) 82%, transparent);
   backdrop-filter: blur(16px) saturate(1.3);
   -webkit-backdrop-filter: blur(16px) saturate(1.3);
@@ -630,7 +630,7 @@ pre {
   width: 100%;
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: 18px 14px calc(var(--bottom-nav-h) + 28px + env(safe-area-inset-bottom));
+  padding: 12px 12px calc(var(--bottom-nav-h) + 20px + env(safe-area-inset-bottom));
 }
 
 .bottom-nav {
@@ -738,7 +738,7 @@ pre {
 .page {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
   width: 100%;
   animation: fade-in 0.28s ease both;
 }
@@ -748,7 +748,7 @@ pre {
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 12px 20px;
+  gap: 10px 16px;
 }
 
 .page-head-text {
@@ -757,24 +757,15 @@ pre {
 }
 
 .page-head h1 {
-  font-size: clamp(22px, 3.4vw, 30px);
+  font-size: clamp(19px, 3vw, 24px);
   letter-spacing: -0.03em;
 }
 
 .page-head p {
-  margin-top: 5px;
+  margin-top: 3px;
   color: var(--muted);
-  font-size: 13.5px;
+  font-size: 12.5px;
   max-width: 70ch;
-}
-
-.page-eyebrow {
-  margin-bottom: 5px;
-  color: var(--accent);
-  font-size: 10.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
 }
 
 .page-actions {
@@ -785,8 +776,8 @@ pre {
 }
 
 .breadcrumb {
-  margin-bottom: -8px;
-  font-size: 13px;
+  margin-bottom: -6px;
+  font-size: 12.5px;
 }
 
 .breadcrumb a {
@@ -847,7 +838,7 @@ pre {
 /* ---------- Cards -------------------------------------------------------- */
 .card {
   position: relative;
-  padding: 16px;
+  padding: 13px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.022), transparent 42%),
     var(--surface);
@@ -862,7 +853,7 @@ pre {
   align-items: center;
   justify-content: space-between;
   gap: 8px 12px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .card-head h2 {
@@ -1610,15 +1601,15 @@ html[dir='rtl'] .toggle-input:checked + .toggle-switch span {
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .stat-card {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 9px;
   min-width: 0;
-  padding: 13px;
+  padding: 11px;
   background:
     linear-gradient(160deg, rgba(255, 255, 255, 0.025), transparent 55%),
     var(--surface);
@@ -1706,18 +1697,18 @@ html[dir='rtl'] .toggle-input:checked + .toggle-switch span {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 34px 16px;
+  gap: 6px;
+  padding: 22px 12px;
   text-align: center;
 }
 
 .empty-icon {
   display: grid;
   place-items: center;
-  width: 58px;
-  height: 58px;
-  margin-bottom: 4px;
-  border-radius: 18px;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 2px;
+  border-radius: 14px;
   color: var(--accent);
   background: var(--accent-soft);
   border: 1px solid var(--accent-line);
@@ -1739,7 +1730,7 @@ html[dir='rtl'] .toggle-input:checked + .toggle-switch span {
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .spinner-wrap {
@@ -2441,7 +2432,7 @@ html[dir='rtl'] .toggle-input:checked + .toggle-switch span {
 
 .hero-cta-row {
   display: flex;
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .hero-cta {
@@ -2477,7 +2468,7 @@ html[dir='rtl'] .toggle-input:checked + .toggle-switch span {
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .active-list-name {
@@ -4478,9 +4469,9 @@ html[dir='rtl'] .audit-row {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
-  min-height: 92px;
-  padding: 12px;
+  gap: 7px;
+  min-height: 74px;
+  padding: 11px;
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border);
@@ -4499,9 +4490,9 @@ html[dir='rtl'] .audit-row {
 .more-icon {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   color: var(--accent);
   background: var(--accent-soft);
 }
@@ -4638,16 +4629,16 @@ html[dir='rtl'] .audit-row {
   }
 
   .content {
-    padding-inline: 11px;
-    padding-top: 14px;
+    padding-inline: 10px;
+    padding-top: 10px;
   }
 
   .page {
-    gap: 14px;
+    gap: 10px;
   }
 
   .card {
-    padding: 13px;
+    padding: 11px;
   }
 
   .page-actions {
@@ -4749,16 +4740,16 @@ html[dir='rtl'] .audit-row {
 /* ---------- Responsive: tablets ----------------------------------------- */
 @media (min-width: 600px) {
   .content {
-    padding: 22px 20px calc(var(--bottom-nav-h) + 34px + env(safe-area-inset-bottom));
+    padding: 14px 16px calc(var(--bottom-nav-h) + 24px + env(safe-area-inset-bottom));
   }
 
   .stats-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
+    gap: 10px;
   }
 
   .stat-card {
-    padding: 14px;
+    padding: 12px;
   }
 
   .form-grid {
@@ -4822,7 +4813,7 @@ html[dir='rtl'] .audit-row {
     grid-template-columns: minmax(0, 1.4fr) minmax(140px, 1fr) auto;
     align-items: center;
     gap: 16px;
-    padding: 15px 17px;
+    padding: 12px 14px;
   }
 
   .scan-active-actions {
@@ -4841,7 +4832,7 @@ html[dir='rtl'] .audit-row {
   }
 
   .scan-result {
-    padding: 17px;
+    padding: 14px;
   }
 
   .scan-session-stats {
@@ -4849,7 +4840,7 @@ html[dir='rtl'] .audit-row {
   }
 
   .scan-main-card {
-    padding: 19px;
+    padding: 15px;
   }
 
   .toast-viewport {
@@ -4943,8 +4934,8 @@ html[dir='rtl'] .audit-row {
   }
 
   .topbar {
-    padding: 10px 26px;
-    min-height: 66px;
+    padding: 8px 24px;
+    min-height: 60px;
   }
 
   .topbar-brand {
@@ -4956,15 +4947,15 @@ html[dir='rtl'] .audit-row {
   }
 
   .content {
-    padding: 26px 26px 44px;
+    padding: 18px 24px 38px;
   }
 
   .page {
-    gap: 20px;
+    gap: 15px;
   }
 
   .page-head h1 {
-    font-size: 29px;
+    font-size: 24px;
   }
 
   .toast-viewport {
@@ -4995,7 +4986,7 @@ html[dir='rtl'] .audit-row {
 
   .scan-side {
     position: sticky;
-    top: 86px;
+    top: 74px;
   }
 
   .scan-session-stats {

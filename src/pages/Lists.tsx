@@ -157,7 +157,6 @@ export function ListsPage() {
     <div className="page">
       <PageHeader
         title={t('lists.title')}
-        subtitle={t('lists.subtitle')}
         actions={
           <>
             <button type="button" className="btn btn-secondary" onClick={() => setShowImport(true)}>
@@ -289,7 +288,6 @@ export function ListsPage() {
         open={showNew}
         onClose={() => setShowNew(false)}
         title={t('lists.new')}
-        subtitle={t('lists.subtitle')}
         icon={<FilePlus2 size={20} />}
         size="sm"
         footer={

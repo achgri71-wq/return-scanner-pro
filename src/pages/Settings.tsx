@@ -86,7 +86,7 @@ export function SettingsPage() {
 
   return (
     <div className="page">
-      <PageHeader title={t('settings.title')} subtitle={t('settings.subtitle')} />
+      <PageHeader title={t('settings.title')} />
 
       <div className="stats-grid">
         <StatCard

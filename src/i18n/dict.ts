@@ -112,7 +112,6 @@ export const messages = {
   'app.saveError': ['Échec de l’enregistrement', 'فشل الحفظ'],
 
   'dashboard.title': ['Tableau de bord', 'لوحة التحكم'],
-  'dashboard.subtitle': ['Vue d’ensemble de vos retours', 'نظرة عامة على الإرجاع'],
   'dashboard.activeList': ['Liste active', 'القائمة النشطة'],
   'dashboard.noActive': ['Aucune liste active', 'لا توجد قائمة نشطة'],
   'dashboard.noActiveText': ['Importez une liste ou choisissez-en une pour commencer le scan.', 'استورد قائمة أو اختر واحدة لبدء المسح.'],
@@ -120,7 +119,6 @@ export const messages = {
   'dashboard.startSession': ['Démarrer une session', 'بدء جلسة'],
   'dashboard.resumeSession': ['Reprendre la session', 'استئناف الجلسة'],
   'dashboard.openScan': ['Ouvrir le scanner', 'فتح الماسح'],
-  'dashboard.quickActions': ['Actions rapides', 'إجراءات سريعة'],
   'dashboard.recent': ['Activité récente', 'النشاط الأخير'],
   'dashboard.noActivity': ['Aucun scan enregistré pour le moment.', 'لا توجد عمليات مسح مسجلة بعد.'],
   'dashboard.required': ['Colis requis', 'الطرود المطلوبة'],
@@ -143,7 +141,6 @@ export const messages = {
   'dashboard.progressOf': ['{done} / {total}', '{done} / {total}'],
 
   'lists.title': ['Listes de retours', 'قوائم الإرجاع'],
-  'lists.subtitle': ['Chaque liste est isolée : ses colis et son registre sont indépendants.', 'كل قائمة مستقلة: طرودها وسجلها منفصلان.'],
   'lists.new': ['Nouvelle liste', 'قائمة جديدة'],
   'lists.import': ['Importer', 'استيراد'],
   'lists.search': ['Rechercher une liste…', 'البحث عن قائمة…'],
@@ -208,7 +205,6 @@ export const messages = {
   'list.returnedAt': ['Retourné le', 'أُرجع في'],
 
   'scan.title': ['Scanner les retours', 'مسح الإرجاع'],
-  'scan.subtitle': ['Caméra, douchette USB/Bluetooth ou saisie manuelle.', 'الكاميرا، قارئ USB/بلوتوث أو الإدخال اليدوي.'],
   'scan.activeList': ['Liste active', 'القائمة النشطة'],
   'scan.changeList': ['Changer', 'تغيير'],
   'scan.noListTitle': ['Aucune liste active', 'لا توجد قائمة نشطة'],
@@ -305,15 +301,12 @@ export const messages = {
   'search.openList': ['Ouvrir la liste', 'فتح القائمة'],
 
   'returned.title': ['Colis retournés', 'الطرود المرتجعة'],
-  'returned.subtitle': ['Tous les retours validés, par liste.', 'كل الإرجاعات المؤكدة، حسب القائمة.'],
   'returned.empty': ['Aucun colis retourné', 'لا توجد طرود مرتجعة'],
   'returned.emptyText': ['Les retours validés apparaîtront ici.', 'ستظهر الإرجاعات المؤكدة هنا.'],
   'remaining.title': ['Colis restants', 'الطرود المتبقية'],
-  'remaining.subtitle': ['Codes requis non encore retournés.', 'أكواد مطلوبة لم تُرجع بعد.'],
   'remaining.empty': ['Aucun colis restant', 'لا توجد طرود متبقية'],
   'remaining.emptyText': ['Tous les colis de cette sélection sont retournés.', 'كل طرود هذا التحديد مرتجعة.'],
   'notRequired.title': ['Colis non demandés', 'الطرود غير المطلوبة'],
-  'notRequired.subtitle': ['Codes scannés qui n’appartiennent pas à la liste active.', 'أكواد ممسوحة لا تنتمي للقائمة النشطة.'],
   'notRequired.empty': ['Aucun colis non demandé', 'لا توجد طرود غير مطلوبة'],
   'notRequired.emptyText': ['Les scans hors liste apparaîtront ici.', 'ستظهر عمليات المسح خارج القائمة هنا.'],
 
@@ -352,7 +345,6 @@ export const messages = {
   'blacklist.danger': ['Un code bloqué reste refusé même s’il est dans la liste active.', 'الكود المحظور يبقى مرفوضاً حتى لو كان في القائمة النشطة.'],
 
   'registry.title': ['Registre des scans', 'سجل عمليات المسح'],
-  'registry.subtitle': ['Un enregistrement unique par code et par liste, avec tentatives.', 'سجل واحد لكل كود في كل قائمة، مع المحاولات.'],
   'registry.search': ['Rechercher un code…', 'البحث عن كود…'],
   'registry.listFilter': ['Liste', 'القائمة'],
   'registry.statusFilter': ['Statut du registre', 'حالة السجل'],
@@ -369,7 +361,6 @@ export const messages = {
   'registry.export': ['Exporter le registre', 'تصدير السجل'],
 
   'reports.title': ['Rapports et sessions', 'التقارير والجلسات'],
-  'reports.subtitle': ['Rapports de session, comparaison des listes et exports.', 'تقارير الجلسات ومقارنة القوائم والتصدير.'],
   'reports.sessions': ['Sessions', 'الجلسات'],
   'reports.noSessions': ['Aucune session', 'لا توجد جلسات'],
   'reports.noSessionsText': ['Démarrez une session depuis le scanner pour générer un rapport.', 'ابدأ جلسة من الماسح لإنشاء تقرير.'],
@@ -406,7 +397,6 @@ export const messages = {
   'reports.noSessionsHint': ['Aucune session enregistrée.', 'لا توجد جلسات مسجلة.'],
 
   'employees.title': ['Employés', 'الموظفون'],
-  'employees.subtitle': ['Attribuez les sessions et suivez l’activité.', 'عيّن الجلسات وتابع النشاط.'],
   'employees.add': ['Nouvel employé', 'موظف جديد'],
   'employees.addTitle': ['Ajouter un employé', 'إضافة موظف'],
   'employees.editTitle': ['Modifier l’employé', 'تعديل الموظف'],
@@ -428,7 +418,6 @@ export const messages = {
   'employees.stats': ['Statistiques', 'الإحصائيات'],
 
   'backups.title': ['Sauvegardes', 'النسخ الاحتياطي'],
-  'backups.subtitle': ['Sauvegarde complète locale, import contrôlé, historique conservé.', 'نسخة محلية كاملة، استيراد محكوم، سجل محفوظ.'],
   'backups.export': ['Exporter la sauvegarde', 'تصدير النسخة الاحتياطية'],
   'backups.exportText': ['Télécharge un fichier JSON contenant listes, colis, registre, événements, employés et réglages.', 'ينزّل ملف JSON يضم القوائم والطرود والسجل والأحداث والموظفين والإعدادات.'],
   'backups.import': ['Restaurer une sauvegarde', 'استعادة نسخة احتياطية'],
@@ -508,7 +497,6 @@ export const messages = {
   'settings.dataStored': ['Données enregistrées sur cet appareil', 'البيانات محفوظة على هذا الجهاز'],
 
   'audit.title': ['Journal d’audit', 'سجل التغييرات'],
-  'audit.subtitle': ['Historique des actions administratives et des modifications.', 'سجل الإجراءات الإدارية والتعديلات.'],
   'audit.search': ['Rechercher une action, un acteur…', 'البحث عن إجراء أو فاعل…'],
   'audit.action': ['Action', 'الإجراء'],
   'audit.actor': ['Acteur', 'الفاعل'],

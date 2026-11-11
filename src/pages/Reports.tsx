@@ -117,7 +117,7 @@ export function ReportsPage() {
 
   return (
     <div className="page">
-      <PageHeader title={t('reports.title')} subtitle={t('reports.subtitle')} />
+      <PageHeader title={t('reports.title')} />
 
       <Section title={t('reports.compare')} className="compare-card">
         <p className="hint">{t('reports.compareHint')}</p>

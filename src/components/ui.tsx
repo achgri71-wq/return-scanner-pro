@@ -134,14 +134,12 @@ export interface PageHeaderProps {
   title: ReactNode
   subtitle?: ReactNode
   actions?: ReactNode
-  eyebrow?: ReactNode
 }
 
-export function PageHeader({ title, subtitle, actions, eyebrow }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
     <header className="page-head">
       <div className="page-head-text">
-        {eyebrow ? <div className="page-eyebrow">{eyebrow}</div> : null}
         <h1>{title}</h1>
         {subtitle ? <p>{subtitle}</p> : null}
       </div>

@@ -86,7 +86,6 @@ export function SearchPage() {
     <div className="page">
       <PageHeader
         title={t('search.title')}
-        subtitle={t('search.subtitle')}
         actions={
           <button type="button" className="btn btn-secondary" onClick={() => setCameraOpen(true)}>
             <Camera size={16} />

@@ -123,7 +123,6 @@ export function AuditPage() {
     <div className="page">
       <PageHeader
         title={t('audit.title')}
-        subtitle={t('audit.subtitle')}
         actions={
           <button type="button" className="btn btn-secondary" onClick={exportJournal} disabled={!visible.length}>
             <Download size={16} />

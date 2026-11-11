@@ -190,7 +190,6 @@ export function ScanPage() {
     <div className="page scan-page">
       <PageHeader
         title={t('scan.title')}
-        subtitle={t('scan.subtitle')}
         actions={
           <>
             <span className={`sound-pill ${settings.sounds ? 'is-on' : 'is-off'}`}>

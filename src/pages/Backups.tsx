@@ -172,7 +172,6 @@ export function BackupsPage() {
     <div className="page">
       <PageHeader
         title={t('backups.title')}
-        subtitle={t('backups.subtitle')}
         actions={
           <button type="button" className="btn btn-primary" onClick={exportBackup}>
             <Download size={16} />

@@ -70,7 +70,6 @@ export function RegistryPage() {
     <div className="page">
       <PageHeader
         title={t('registry.title')}
-        subtitle={t('registry.subtitle')}
         actions={
           <button type="button" className="btn btn-secondary" onClick={() => void exportList()} disabled={!visible.length}>
             <Download size={16} />

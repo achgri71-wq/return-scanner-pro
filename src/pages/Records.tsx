@@ -39,10 +39,10 @@ export function NotRequiredPage() {
   return <RecordsPage kind="notRequired" />
 }
 
-const TITLES: Record<Kind, [string, string]> = {
-  returned: ['returned.title', 'returned.subtitle'],
-  remaining: ['remaining.title', 'remaining.subtitle'],
-  notRequired: ['notRequired.title', 'notRequired.subtitle'],
+const TITLES: Record<Kind, string> = {
+  returned: 'returned.title',
+  remaining: 'remaining.title',
+  notRequired: 'notRequired.title',
 }
 
 const EMPTY: Record<Kind, [string, string]> = {
@@ -165,8 +165,7 @@ export function RecordsPage({ kind }: { kind: Kind }) {
   }
 
   const icon = kind === 'returned' ? PackageCheck : kind === 'remaining' ? ClipboardList : PackageX
-  const titleKey = TITLES[kind][0] as 'returned.title'
-  const subtitleKey = TITLES[kind][1] as 'returned.subtitle'
+  const titleKey = TITLES[kind] as 'returned.title'
   const emptyKey = EMPTY[kind][0] as 'returned.empty'
   const emptyTextKey = EMPTY[kind][1] as 'returned.emptyText'
 
@@ -174,7 +173,6 @@ export function RecordsPage({ kind }: { kind: Kind }) {
     <div className="page">
       <PageHeader
         title={t(titleKey)}
-        subtitle={t(subtitleKey)}
         actions={
           <button type="button" className="btn btn-secondary" onClick={() => void exportRows()} disabled={!rows.length}>
             <Download size={16} />
