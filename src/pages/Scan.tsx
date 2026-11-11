@@ -7,7 +7,7 @@ import {
   Camera,
   CheckCircle2,
   ClipboardList,
-  CloudUpload,
+  CloudDownload,
   ListChecks,
   PackageCheck,
   PackageX,
@@ -25,7 +25,7 @@ import { useI18n, errorKey, type Translate, type TKey } from '../i18n'
 import { useHidScanner } from '../hooks/useHidScanner'
 import { blacklistCodeSet, computeListStats, sessionActivity } from '../lib/stats'
 import { exportReportCsv, exportReportTxt, exportReportXlsx } from '../lib/export'
-import { formatPercent, relativeTime } from '../lib/utils'
+import { formatDateTime, formatPercent, downloadJson, relativeTime, sanitizeFilename } from '../lib/utils'
 import {
   Badge,
   ConfirmDialog,
@@ -77,6 +77,8 @@ export function ScanPage() {
   const events = useStore((state) => state.events)
   const sessions = useStore((state) => state.sessions)
   const settings = useStore((state) => state.settings)
+  const createBackup = useStore((state) => state.createBackup)
+  const markBackupExported = useStore((state) => state.markBackupExported)
   const scan = useStore((state) => state.scan)
   const switchList = useStore((state) => state.switchList)
   const closeSession = useStore((state) => state.closeSession)
@@ -120,6 +122,20 @@ export function ScanPage() {
       if (!document.querySelector('.modal-backdrop')) inputRef.current?.focus()
     }, 20)
   }, [settings.autoFocus])
+
+  const backupDue = useMemo(() => {
+    if (!lists.length) return false
+    if (!settings.lastBackupAt) return true
+    const days = (Date.now() - new Date(settings.lastBackupAt).getTime()) / 86_400_000
+    return days >= settings.backupReminderDays
+  }, [lists.length, settings.lastBackupAt, settings.backupReminderDays])
+
+  const exportBackup = () => {
+    const payload = createBackup()
+    downloadJson(payload, `returnscanner-backup-${sanitizeFilename(new Date().toISOString().slice(0, 10))}.json`)
+    markBackupExported()
+    toast(t('toast.exportStarted'))
+  }
 
   useEffect(() => {
     focusInput()
@@ -204,6 +220,28 @@ export function ScanPage() {
           </>
         }
       />
+
+      {backupDue ? (
+        <div className="callout warning">
+          <span className="callout-icon">
+            <AlertTriangle size={20} />
+          </span>
+          <div className="callout-text">
+            <strong>{t('dashboard.backupTitle')}</strong>
+            <p>
+              {t('dashboard.backupText', {
+                date: settings.lastBackupAt
+                  ? formatDateTime(settings.lastBackupAt, lang)
+                  : t('backups.never'),
+              })}
+            </p>
+          </div>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={exportBackup}>
+            <CloudDownload size={16} />
+            {t('dashboard.backupNow')}
+          </button>
+        </div>
+      ) : null}
 
       {activeList && stats ? (
         <div className={`scan-active-banner${openSession ? ' has-session' : ''}`}>
@@ -335,9 +373,6 @@ export function ScanPage() {
                   <Camera size={17} />
                   {t('scan.camera')}
                 </button>
-                <span className="hint">
-                  <Volume2 size={14} /> {t('scan.hidHint')}
-                </span>
               </div>
 
               <div
@@ -358,10 +393,7 @@ export function ScanPage() {
                       <code className="scan-result-code">{lastOutcome.code || '—'}</code>
                     </>
                   ) : (
-                    <>
-                      <strong>{t('scan.waiting')}</strong>
-                      <p>{t('scan.hint')}</p>
-                    </>
+                    <strong>{t('scan.waiting')}</strong>
                   )}
                 </div>
                 {lastOutcome?.status === 'accepted' ? (
@@ -436,16 +468,6 @@ export function ScanPage() {
                   </button>
                 </div>
               ) : null}
-
-              <div className="callout info">
-                <span className="callout-icon">
-                  <CloudUpload size={20} />
-                </span>
-                <div className="callout-text">
-                  <strong>{t('settings.autoFocus')}</strong>
-                  <p>{t('scan.hint')}</p>
-                </div>
-              </div>
             </aside>
           </div>
 

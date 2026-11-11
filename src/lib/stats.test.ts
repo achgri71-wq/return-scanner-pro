@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type {
   AppData,
-  BlacklistEntry,
   Employee,
   ReturnList,
   ReturnParcel,
@@ -13,7 +12,6 @@ import {
   buildListComparison,
   buildSessionReport,
   blacklistCodeSet,
-  computeDashboardStats,
   computeEmployeeStats,
   computeListStats,
   scanAttemptGroups,
@@ -144,57 +142,6 @@ describe('computeListStats', () => {
       prohibitedReturned: 0,
       completion: 0,
     })
-  })
-})
-
-describe('computeDashboardStats', () => {
-  it('aggregates lists, registry and events', () => {
-    const blacklist: BlacklistEntry[] = [
-      { id: 'b1', code: 'A', reason: 'x', addedAt: NOW, addedBy: 'admin' },
-    ]
-    const data = makeData({
-      lists: [list('L1'), list('L2', 'completed'), list('L3', 'new'), list('L4', 'archived')],
-      parcels: [
-        parcel('L1', 'A', 'returned'),
-        parcel('L1', 'B'),
-        parcel('L2', 'C', 'returned'),
-      ],
-      registry: [registryEntry('L1', 'X', 'not-required'), registryEntry('L1', 'B', 'required-returned')],
-      events: [
-        event('e1', 'A', 'accepted'),
-        event('e2', 'A', 'duplicate'),
-        event('e3', 'X', 'not-required'),
-        event('e4', 'B', 'blacklisted'),
-      ],
-      blacklist,
-    })
-    const stats = computeDashboardStats(data)
-
-    expect(stats.totalLists).toBe(4)
-    expect(stats.newLists).toBe(1)
-    expect(stats.activeLists).toBe(1)
-    expect(stats.completedLists).toBe(1)
-    expect(stats.archivedLists).toBe(1)
-    expect(stats.totalRequired).toBe(3)
-    expect(stats.totalReturned).toBe(1)
-    expect(stats.totalRemaining).toBe(2)
-    expect(stats.notRequired).toBe(1)
-    expect(stats.blacklisted).toBe(1)
-    expect(stats.repeatedAttempts).toBe(1)
-    expect(stats.blacklistedAttempts).toBe(1)
-    expect(stats.lists).toHaveLength(4)
-    expect(stats.recentEvents[0]?.id).toBeDefined()
-  })
-
-  it('sorts recent events by descending date and limits them to eight', () => {
-    const events = Array.from({ length: 10 }, (_, index) => ({
-      ...event(`e${index}`, `C${index}`, 'not-required'),
-      at: `2026-10-${String(index + 1).padStart(2, '0')}T10:00:00.000Z`,
-    }))
-    const stats = computeDashboardStats(makeData({ events }))
-    expect(stats.recentEvents).toHaveLength(8)
-    expect(stats.recentEvents[0]?.at).toBe('2026-10-10T10:00:00.000Z')
-    expect(stats.recentEvents[0]?.id).toBe('e9')
   })
 })
 

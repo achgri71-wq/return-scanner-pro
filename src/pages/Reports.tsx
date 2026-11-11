@@ -120,7 +120,6 @@ export function ReportsPage() {
       <PageHeader title={t('reports.title')} />
 
       <Section title={t('reports.compare')} className="compare-card">
-        <p className="hint">{t('reports.compareHint')}</p>
         <select
           className="input compact-select"
           value={compareListId}

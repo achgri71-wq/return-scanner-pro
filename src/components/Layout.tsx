@@ -10,7 +10,6 @@ import {
   CloudOff,
   DatabaseBackup,
   History,
-  Home,
   Languages,
   ListChecks,
   Menu,
@@ -25,6 +24,7 @@ import {
   Users,
   Wifi,
   WifiOff,
+  type LucideIcon,
 } from 'lucide-react'
 import { useStore, useActiveList } from '../store/useStore'
 import { useI18n } from '../i18n'
@@ -36,7 +36,7 @@ import { Badge } from './ui'
 interface NavItem {
   to: string
   label: string
-  icon: typeof Home
+  icon: LucideIcon
   end?: boolean
   primary?: boolean
 }
@@ -56,7 +56,6 @@ export function Layout() {
   useWakeLock(settings.keepAwake)
 
   const primary: NavItem[] = [
-    { to: '/', label: t('nav.home'), icon: Home, end: true, primary: true },
     { to: '/lists', label: t('nav.lists'), icon: ListChecks, primary: true },
     { to: '/scan', label: t('nav.scan'), icon: ScanLine, primary: true },
     { to: '/search', label: t('nav.search'), icon: Search, primary: true },
@@ -165,6 +164,9 @@ export function Layout() {
           </div>
 
           <div className="topbar-actions">
+            <NavLink to="/search" className="icon-btn topbar-search" aria-label={t('search.title')} title={t('search.title')}>
+              <Search size={18} />
+            </NavLink>
             <button
               type="button"
               className="icon-btn"
@@ -201,43 +203,43 @@ export function Layout() {
         </main>
       </div>
 
-      <nav className="bottom-nav" aria-label={t('nav.home')}>
-        {primary.map((item) => {
-          const Icon = item.icon
-          const active =
-            item.to === '/more'
-              ? isSecondary
-              : item.to === '/'
-                ? location.pathname === '/'
+      <nav className="bottom-nav" aria-label={t('app.name')}>
+        {primary
+          .filter((item) => item.to !== '/search')
+          .map((item) => {
+            const Icon = item.icon
+            const active =
+              item.to === '/more'
+                ? isSecondary
                 : location.pathname === item.to ||
                   (item.to === '/lists' && location.pathname.startsWith('/lists'))
-          if (item.to === '/scan') {
+            if (item.to === '/scan') {
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={cx('bottom-scan', active && 'is-active')}
+                >
+                  <span className="bottom-scan-circle">
+                    <Icon size={25} />
+                  </span>
+                  <span>{item.label}</span>
+                </NavLink>
+              )
+            }
             return (
               <NavLink
                 key={item.to}
                 to={item.to}
                 end={item.end}
-                className={cx('bottom-scan', active && 'is-active')}
+                className={cx('bottom-link', active && 'is-active')}
               >
-                <span className="bottom-scan-circle">
-                  <Icon size={25} />
-                </span>
+                <Icon size={21} />
                 <span>{item.label}</span>
               </NavLink>
             )
-          }
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={cx('bottom-link', active && 'is-active')}
-            >
-              <Icon size={21} />
-              <span>{item.label}</span>
-            </NavLink>
-          )
-        })}
+          })}
       </nav>
     </div>
   )

@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
 import {
-  BellRing,
   DatabaseBackup,
   Download,
   Fingerprint,
   Info,
-  Languages,
   Moon,
   ScanLine,
   ShieldCheck,
@@ -29,7 +27,6 @@ import {
   PageHeader,
   Section,
   Segmented,
-  StatCard,
   Toggle,
 } from '../components/ui'
 import { toast } from '../components/Toast'
@@ -88,30 +85,6 @@ export function SettingsPage() {
     <div className="page">
       <PageHeader title={t('settings.title')} />
 
-      <div className="stats-grid">
-        <StatCard
-          icon={ShieldCheck}
-          label={t('settings.localOnly')}
-          value={t('settings.offlineReady')}
-          hint={t('settings.localOnlyText')}
-          tone="success"
-        />
-        <StatCard
-          icon={Languages}
-          label={t('settings.language')}
-          value={settings.lang === 'fr' ? 'Français' : 'العربية'}
-          hint={settings.lang === 'ar' ? 'RTL' : 'LTR'}
-          tone="info"
-        />
-        <StatCard
-          icon={settings.sounds ? Volume2 : BellRing}
-          label={t('settings.sound')}
-          value={settings.sounds ? t('common.enabled') : t('common.disabled')}
-          hint={`${Math.round(settings.volume * 100)}%`}
-          tone={settings.sounds ? 'accent' : 'muted'}
-        />
-      </div>
-
       <Section title={t('settings.theme')}>
         <div className="settings-grid">
           <div className="settings-block">
@@ -124,7 +97,6 @@ export function SettingsPage() {
                 { value: 'ar', label: 'العربية' },
               ]}
             />
-            <p className="hint">{t('settings.subtitle')}</p>
           </div>
           <div className="settings-block">
             <span className="field-label">{t('settings.theme')}</span>
@@ -137,7 +109,6 @@ export function SettingsPage() {
                 { value: 'system', label: <span className="segment-icon"><Monitor size={15} /> {t('settings.system')}</span> },
               ]}
             />
-            <p className="hint">{t('settings.theme')}</p>
           </div>
         </div>
       </Section>
@@ -344,7 +315,6 @@ export function SettingsPage() {
             <strong>{settings.lastBackupAt ? settings.lastBackupAt.slice(0, 10) : t('backups.never')}</strong>
           </div>
         </div>
-        <p className="hint">{t('settings.dataStored')} — {t('settings.localOnlyText')}</p>
       </Section>
     </div>
   )

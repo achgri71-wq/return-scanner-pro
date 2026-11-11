@@ -7,7 +7,6 @@ import { useStore } from './store/useStore'
 import { useI18n } from './i18n'
 import { installAudioUnlock } from './lib/feedback'
 import { useWakeLock } from './hooks/useWakeLock'
-import { DashboardPage } from './pages/Dashboard'
 import { ListsPage } from './pages/Lists'
 import { ListDetailPage } from './pages/ListDetail'
 import { ScanPage } from './pages/Scan'
@@ -23,7 +22,7 @@ import { AuditPage } from './pages/Audit'
 
 function NotFoundPage() {
   const { t } = useI18n()
-  return <Navigate to="/" replace state={{ message: t('common.noData') }} />
+  return <Navigate to="/scan" replace state={{ message: t('common.noData') }} />
 }
 
 export default function App() {
@@ -72,7 +71,7 @@ export default function App() {
       ) : null}
       <Routes>
         <Route element={<Layout />}>
-          <Route index element={<DashboardPage />} />
+          <Route index element={<Navigate to="/scan" replace />} />
           <Route path="lists" element={<ListsPage />} />
           <Route path="lists/:listId" element={<ListDetailPage />} />
           <Route path="scan" element={<ScanPage />} />

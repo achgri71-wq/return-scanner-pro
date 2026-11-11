@@ -639,7 +639,7 @@ pre {
   bottom: 0;
   z-index: 50;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   padding: 5px 6px calc(5px + env(safe-area-inset-bottom));
   background: color-mix(in srgb, var(--surface) 90%, transparent);
   backdrop-filter: blur(18px) saturate(1.4);
@@ -2424,91 +2424,6 @@ html[dir='rtl'] .toggle-input:checked + .toggle-switch span {
   }
 }
 
-/* ---------- Dashboard ---------------------------------------------------- */
-/* Hero card — the one big thing that matters on the home screen */
-.active-list-card .active-list-name {
-  font-size: 21px;
-}
-
-.hero-cta-row {
-  display: flex;
-  margin-top: 12px;
-}
-
-.hero-cta {
-  justify-content: center;
-  width: 100%;
-  min-height: 56px;
-  font-size: 15.5px;
-  font-weight: 700;
-  border-radius: var(--radius);
-  gap: 9px;
-}
-
-.empty-state .hero-cta {
-  margin-inline: auto;
-}
-
-.active-list-card {
-  overflow: hidden;
-}
-
-.active-list-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  opacity: 0.7;
-}
-
-.active-list-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.active-list-name {
-  font-size: 19px;
-  font-weight: 750;
-  letter-spacing: -0.025em;
-  overflow-wrap: anywhere;
-}
-
-.active-list-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 7px;
-  margin-top: 5px;
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.active-list-progress {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 1px;
-  text-align: end;
-}
-
-.active-list-progress strong {
-  font-size: 28px;
-  font-weight: 750;
-  letter-spacing: -0.03em;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-
-.active-list-progress span {
-  color: var(--muted);
-  font-size: 10.5px;
-}
-
 .steps {
   display: flex;
   flex-direction: column;
@@ -3123,11 +3038,6 @@ html[dir='rtl'] .scan-input {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-}
-
-.scan-quick-actions .hint {
-  flex: 1 1 180px;
-  font-size: 10.5px;
 }
 
 .scan-result {
@@ -4730,11 +4640,6 @@ html[dir='rtl'] .audit-row {
     width: 22px;
     height: 22px;
   }
-
-  .hero-cta {
-    min-height: 52px;
-    font-size: 14.5px;
-  }
 }
 
 /* ---------- Responsive: tablets ----------------------------------------- */
@@ -4936,6 +4841,10 @@ html[dir='rtl'] .audit-row {
   .topbar {
     padding: 8px 24px;
     min-height: 60px;
+  }
+
+  .topbar-search {
+    display: none;
   }
 
   .topbar-brand {

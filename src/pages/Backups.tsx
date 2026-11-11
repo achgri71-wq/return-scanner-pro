@@ -222,7 +222,6 @@ export function BackupsPage() {
 
       <div className="two-col">
         <Section title={t('backups.export')}>
-          <p className="hint">{t('backups.exportText')}</p>
           <div className="backup-actions">
             <button type="button" className="btn btn-primary" onClick={exportBackup}>
               <Download size={16} />
@@ -246,7 +245,6 @@ export function BackupsPage() {
         </Section>
 
         <Section title={t('backups.import')}>
-          <p className="hint">{t('backups.importText')}</p>
           <input
             ref={fileRef}
             type="file"
@@ -265,7 +263,6 @@ export function BackupsPage() {
               </Badge>
             ) : null}
           </div>
-          <div className="inline-alert warning">{t('backups.localOnly')} — {t('backups.localOnlyText')}</div>
         </Section>
       </div>
 
@@ -282,7 +279,6 @@ export function BackupsPage() {
           </Badge>
         </div>
         <ProgressBar value={usageRatio} tone={usageRatio > 0.85 ? 'warning' : 'accent'} />
-        <p className="hint">{t('settings.dataStored')}</p>
       </Section>
 
       {busy && !preview ? <Spinner label={t('backups.parsing')} /> : null}

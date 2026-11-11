@@ -166,19 +166,6 @@ export function EmployeesPage() {
         />
       </div>
 
-      <div className="callout info">
-        <span className="callout-icon">
-          <UserPlus size={20} />
-        </span>
-        <div className="callout-text">
-          <strong>{t('employees.current')}</strong>
-          <p>{current ? `${current.name} — ${t('employees.select')}` : t('session.selectEmployee')}</p>
-        </div>
-        {current ? (
-          <span className="avatar">{initials(current.name)}</span>
-        ) : null}
-      </div>
-
       <Section>
         <div className="toolbar">
           <SearchField

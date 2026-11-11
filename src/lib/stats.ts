@@ -54,54 +54,6 @@ export function computeListStats(
   }
 }
 
-export interface DashboardStats {
-  totalLists: number
-  newLists: number
-  activeLists: number
-  completedLists: number
-  archivedLists: number
-  totalRequired: number
-  totalReturned: number
-  totalRemaining: number
-  notRequired: number
-  blacklisted: number
-  repeatedAttempts: number
-  blacklistedAttempts: number
-  lists: Array<{ list: ReturnList; stats: ListStats }>
-  recentEvents: ScanEvent[]
-}
-
-export function computeDashboardStats(data: AppData): DashboardStats {
-  const blacklisted = blacklistCodeSet(data.blacklist)
-  const listRows = data.lists.map((list) => ({
-    list,
-    stats: computeListStats(list.id, data.parcels, blacklisted),
-  }))
-
-  const notRequired = data.registry.filter((entry) => entry.status === 'not-required').length
-  const repeatedAttempts = data.events.filter((event) => event.result === 'duplicate').length
-  const blacklistedAttempts = data.events.filter((event) => event.result === 'blacklisted').length
-
-  return {
-    totalLists: data.lists.length,
-    newLists: data.lists.filter((list) => list.status === 'new').length,
-    activeLists: data.lists.filter((list) => list.status === 'active').length,
-    completedLists: data.lists.filter((list) => list.status === 'completed').length,
-    archivedLists: data.lists.filter((list) => list.status === 'archived').length,
-    totalRequired: listRows.reduce((sum, row) => sum + row.stats.total, 0),
-    totalReturned: listRows.reduce((sum, row) => sum + row.stats.returned, 0),
-    totalRemaining: listRows.reduce((sum, row) => sum + row.stats.remaining, 0),
-    notRequired,
-    blacklisted: data.blacklist.length,
-    repeatedAttempts,
-    blacklistedAttempts,
-    lists: listRows,
-    recentEvents: [...data.events]
-      .sort((a, b) => b.at.localeCompare(a.at))
-      .slice(0, 8),
-  }
-}
-
 export interface SessionActivity {
   scans: number
   accepted: number

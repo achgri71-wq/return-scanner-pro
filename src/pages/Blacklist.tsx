@@ -124,18 +124,13 @@ export function BlacklistPage() {
       />
 
       <div className="stats-grid">
-        <StatCard icon={BadgeAlert} label={t('blacklist.count', { count: blacklist.length })} value={blacklist.length} tone="danger" />
-        <StatCard icon={ShieldAlert} label={t('blacklist.title')} value={t('common.admin')} hint={t('blacklist.danger')} tone="warning" />
-      </div>
-
-      <div className="callout danger">
-        <span className="callout-icon">
-          <ShieldAlert size={20} />
-        </span>
-        <div className="callout-text">
-          <strong>{t('blacklist.subtitle')}</strong>
-          <p>{t('blacklist.danger')}</p>
-        </div>
+        <StatCard
+          icon={BadgeAlert}
+          label={t('blacklist.count', { count: blacklist.length })}
+          value={blacklist.length}
+          hint={t('blacklist.danger')}
+          tone="danger"
+        />
       </div>
 
       <Section>
@@ -189,7 +184,6 @@ export function BlacklistPage() {
         open={showAdd}
         onClose={() => setShowAdd(false)}
         title={t('blacklist.addTitle')}
-        subtitle={t('blacklist.bulkHint')}
         icon={<ShieldAlert size={20} />}
         size="sm"
         footer={
