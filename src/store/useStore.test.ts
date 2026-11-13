@@ -128,9 +128,8 @@ describe('scanning acceptance behaviour', () => {
     const parcel = afterAccept.parcels.find((item) => item.code === '001')
     expect(parcel?.status).toBe('returned')
     expect(parcel?.returnedAt).toBeDefined()
-    expect(codeRows('001')).toHaveLength(1)
-    expect(codeRows('001')[0]?.attempts).toBe(1)
-    expect(codeRows('001')[0]?.status).toBe('required-returned')
+    // Returned parcels never enter the registry: their own status is the proof.
+    expect(codeRows('001')).toHaveLength(0)
     expect(afterAccept.events).toHaveLength(1)
 
     const duplicate = useStore.getState().scan('001', 'manual')
@@ -140,9 +139,7 @@ describe('scanning acceptance behaviour', () => {
     const afterDuplicate = useStore.getState()
     expect(afterDuplicate.parcels.filter((item) => item.code === '001')).toHaveLength(1)
     expect(afterDuplicate.parcels.filter((item) => item.code === '001')[0]?.status).toBe('returned')
-    expect(codeRows('001')).toHaveLength(1)
-    expect(codeRows('001')[0]?.attempts).toBe(2)
-    expect(codeRows('001')[0]?.lastResult).toBe('duplicate')
+    expect(codeRows('001')).toHaveLength(0)
     expect(afterDuplicate.events).toHaveLength(2)
     expect(afterDuplicate.events.map((event) => event.result).sort()).toEqual([
       'accepted',
@@ -161,7 +158,7 @@ describe('scanning acceptance behaviour', () => {
     expect(first.status).toBe('accepted')
     expect(second.status).toBe('accepted')
     expect(useStore.getState().events).toHaveLength(1)
-    expect(codeRows('002')[0]?.attempts).toBe(1)
+    expect(codeRows('002')).toHaveLength(0)
     expect(useStore.getState().lastOutcomeSeq).toBe(seqAfterFirst)
     expect(useStore.getState().persistStatus).not.toBe('error')
   })
@@ -269,7 +266,8 @@ describe('blacklist priority', () => {
     useStore.getState().addBlacklist([{ code: 'A-001', reason: 'chargeback' }])
     const outcome = useStore.getState().scan('A-001', 'manual')
     expect(outcome.status).toBe('blacklisted')
-    expect(codeRows('A-001')[0]?.attempts).toBe(2)
+    expect(codeRows('A-001')).toHaveLength(1)
+    expect(codeRows('A-001')[0]?.attempts).toBe(1)
     expect(codeRows('A-001')[0]?.status).toBe('return-prohibited')
   })
 })
@@ -292,7 +290,7 @@ describe('direct scanning and list closure', () => {
     const parcel = state.parcels.find((item) => item.code === '001')
     expect(parcel?.status).toBe('returned')
     expect(parcel?.returnedBy).toBeTruthy()
-    expect(codeRows('001')[0]?.attempts).toBe(2)
+    expect(codeRows('001')).toHaveLength(0)
   })
 
   it('completes the list automatically when every parcel is returned', () => {
@@ -332,7 +330,7 @@ describe('direct scanning and list closure', () => {
     expect(stats).toMatchObject({ total: 3, returned: 1, remaining: 2, pending: 2 })
   })
 
-  it('deletes a code with its registry rows and events', () => {
+  it('deletes a code with its events', () => {
     const listId = createList('Deletable', ['D-01', 'D-02'])
     activate(listId)
     useStore.getState().scan('D-01', 'manual')
@@ -340,7 +338,7 @@ describe('direct scanning and list closure', () => {
 
     const stateBefore = useStore.getState()
     const parcel = stateBefore.parcels.find((item) => item.code === 'D-01')!
-    expect(codeRows('D-01', listId)).toHaveLength(1)
+    expect(codeRows('D-01', listId)).toHaveLength(0)
     expect(stateBefore.events.some((item) => item.code === 'D-01')).toBe(true)
 
     const result = useStore.getState().deleteParcel(listId, parcel.id)
@@ -381,7 +379,7 @@ describe('replace import and correction', () => {
     const oldParcelIds = before.parcels.map((parcel) => parcel.id)
     const eventCount = before.events.length
     expect(eventCount).toBe(1)
-    expect(before.registry.filter((entry) => entry.listId === listId)).toHaveLength(1)
+    expect(before.registry.filter((entry) => entry.listId === listId)).toHaveLength(0)
 
     const result = useStore.getState().importCodes({
       name: 'Replace me',
@@ -436,7 +434,7 @@ describe('replace import and correction', () => {
 
     const rescanned = useStore.getState().scan('001', 'manual')
     expect(rescanned.status).toBe('accepted')
-    expect(codeRows('001', listId)[0]?.attempts).toBe(1)
+    expect(codeRows('001', listId)).toHaveLength(0)
   })
 })
 
@@ -451,9 +449,8 @@ describe('offline persistence', () => {
     const loaded = await db.loadAll()
     expect(loaded.lists.find((list) => list.id === listId)?.name).toBe('Offline')
     expect(loaded.parcels.find((parcel) => parcel.code === '001')?.status).toBe('returned')
-    expect(
-      loaded.registry.find((entry) => entry.code === '001' && entry.listId === listId)?.status,
-    ).toBe('required-returned')
+    // Returned parcels do not pollute the registry.
+    expect(loaded.registry.some((entry) => entry.status === 'required-returned')).toBe(false)
     expect(loaded.events).toHaveLength(1)
     expect(loaded.events[0]?.result).toBe('accepted')
     expect(loaded.blacklist[0]?.code).toBe('002')

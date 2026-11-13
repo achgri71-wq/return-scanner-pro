@@ -387,6 +387,14 @@ export const useStore = create<StoreState>((set, get) => {
         try {
           const data = await db.loadAll()
           const settings = get().settings
+          // The registry only tracks codes scanned outside the lists: returned
+          // parcels are proven by their own status, so drop legacy entries.
+          const staleRegistry = data.registry.filter(
+            (entry) => entry.status === 'required-returned',
+          )
+          const registry = staleRegistry.length
+            ? data.registry.filter((entry) => entry.status !== 'required-returned')
+            : data.registry
           let activeListId = settings.activeListId ?? null
           if (
             !activeListId ||
@@ -407,7 +415,10 @@ export const useStore = create<StoreState>((set, get) => {
               : null
           const nextSettings = { ...settings, activeListId, currentEmployeeId }
           persistSettings(nextSettings)
-          set({ ...data, settings: nextSettings, ready: true })
+          set({ ...data, registry, settings: nextSettings, ready: true })
+          if (staleRegistry.length) {
+            persist({ deleteRegistry: staleRegistry.map((entry) => entry.id) })
+          }
         } catch (error) {
           set({
             ready: true,
@@ -870,35 +881,24 @@ export const useStore = create<StoreState>((set, get) => {
           pendingLeft === 0
             ? { ...updateListAfterScan(list, now), status: 'completed' as const, closedAt: now }
             : updateListAfterScan(list, now)
-        const registry = upsertRegistry({
-          status: 'required-returned',
-          lastResult: 'accepted',
-          returnedAt: now,
-          blacklistReason: undefined,
-          otherListId: undefined,
-          otherListName: undefined,
-        })
         const event = makeEvent('accepted')
         set((current) => ({
           parcels: current.parcels.map((item) => (item.id === parcel.id ? parcel : item)),
-          registry: existingRegistry
-            ? current.registry.map((item) => (item.id === registry.id ? registry : item))
-            : [registry, ...current.registry],
           events: [event, ...current.events],
-          lists: current.lists.map((item) => (item.id === list.id ? nextList : item)),
+          lists: current.lists.map((item) =>
+            item.id === list.id ? nextList : item,
+          ),
           lastOutcome: {
             ...base,
             status: 'accepted',
             listId: list.id,
             listName: list.name,
             parcelId: parcel.id,
-            registryId: registry.id,
           },
           lastOutcomeSeq: current.lastOutcomeSeq + 1,
         }))
         persist({
           parcels: [parcel],
-          registry: [registry],
           events: [event],
           lists: [nextList],
         })
@@ -909,44 +909,26 @@ export const useStore = create<StoreState>((set, get) => {
           listId: list.id,
           listName: list.name,
           parcelId: parcel.id,
-          registryId: registry.id,
         }
         processedScans.set(requestId, { outcome, at: Date.now() })
         return outcome
       }
 
       if (decision.kind === 'duplicate') {
-        const registry = upsertRegistry({
-          status: 'required-returned',
-          lastResult: 'duplicate',
-          returnedAt: decision.parcel.returnedAt ?? now,
-          blacklistReason: undefined,
-          otherListId: undefined,
-          otherListName: undefined,
-        })
         const event = makeEvent('duplicate')
         set((current) => ({
-          registry: existingRegistry
-            ? current.registry.map((item) => (item.id === registry.id ? registry : item))
-            : [registry, ...current.registry],
           events: [event, ...current.events],
-          lists: current.lists.map((item) =>
-            item.id === list.id ? updateListAfterScan(list, now) : item,
-          ),
           lastOutcome: {
             ...base,
             status: 'duplicate',
             listId: list.id,
             listName: list.name,
             parcelId: decision.parcel.id,
-            registryId: registry.id,
           },
           lastOutcomeSeq: current.lastOutcomeSeq + 1,
         }))
         persist({
-          registry: [registry],
           events: [event],
-          lists: [updateListAfterScan(list, now)],
         })
         playFeedback('duplicate', soundOptions(state))
         const outcome: ScanOutcome = {
@@ -955,7 +937,6 @@ export const useStore = create<StoreState>((set, get) => {
           listId: list.id,
           listName: list.name,
           parcelId: decision.parcel.id,
-          registryId: registry.id,
         }
         processedScans.set(requestId, { outcome, at: Date.now() })
         return outcome
