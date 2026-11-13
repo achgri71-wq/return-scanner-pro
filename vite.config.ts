@@ -1,6 +1,19 @@
 import { defineConfig } from 'vitest/config'
+import { copyFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+
+/** GitHub Pages fallback: serves the SPA shell for deep links like /scan. */
+function spa404Fallback(): Plugin {
+  return {
+    name: 'spa-404-fallback',
+    closeBundle() {
+      const dist = resolve(__dirname, 'dist')
+      copyFileSync(resolve(dist, 'index.html'), resolve(dist, '404.html'))
+    },
+  }
+}
 
 export default defineConfig(({ mode }) => ({
   // GitHub Pages serves project sites at https://<user>.github.io/<repo>/,
@@ -9,6 +22,7 @@ export default defineConfig(({ mode }) => ({
   base: mode === 'production' ? '/return-scanner-pro/' : '/',
   plugins: [
     react(),
+    spa404Fallback(),
     VitePWA({
       registerType: 'auto',
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
