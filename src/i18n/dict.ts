@@ -466,6 +466,20 @@ export const messages = {
   'backup.code.multiple-open-sessions': ['Plusieurs sessions étaient ouvertes ; une seule sera conservée.', 'كانت هناك عدة جلسات مفتوحة؛ ستُحفظ واحدة فقط.'],
   'backup.code.orphan-events': ['Des événements référencent des listes absentes.', 'توجد أحداث تشير إلى قوائم غير موجودة.'],
 
+  'search.modeSingle': ['Simple', 'فردي'],
+  'search.modeMulti': ['Multiple', 'متعدد'],
+  'search.multiHint': ['Collez ou scannez plusieurs codes, puis lancez la recherche.', 'الصق أو امسح عدة أكواد ثم ابدأ البحث.'],
+  'search.multiStart': ['Collez des codes pour commencer', 'الصق أكواداً للبدء'],
+  'search.multiPlaceholder': ['Collez une liste de codes (un par ligne, ou séparés par , ;)…', 'الصق قائمة أكواد (كود في كل سطر، أو مفصولة بـ , ;)…'],
+  'search.multiRun': ['Rechercher', 'بحث'],
+  'search.multiScan': ['Scanner', 'مسح بالكاميرا'],
+  'search.multiReset': ['Vider', 'تفريغ'],
+  'search.multiCount': ['{count} code(s)', '{count} كود'],
+  'search.multiResults': ['Résultats par code', 'النتائج حسب الكود'],
+  'search.multiFound': ['{count} trouvé(s)', '{count} موجود'],
+  'search.multiMissing': ['{count} introuvable(s)', '{count} غير موجود'],
+  'search.multiNotFound': ['Introuvable', 'غير موجود'],
+
   // @@END@@
 } as const satisfies Record<string, readonly [string, string]>
 

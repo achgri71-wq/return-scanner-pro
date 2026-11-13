@@ -5,6 +5,7 @@ import type {
   ScannedCode,
 } from '../types'
 import { dayKey } from './utils'
+import { normalizeCode } from './codes'
 
 export type SearchStatus = 'returned' | 'pending' | 'not-required' | 'prohibited'
 export type SearchStatusFilter = 'all' | SearchStatus
@@ -50,6 +51,20 @@ function inDateRange(value: string | undefined, from: string, to: string): boole
   if (from && day < from) return false
   if (to && day > to) return false
   return true
+}
+
+/** Resolves the display status shared by single and multi search. */
+function resolveStatus(
+  blacklisted: Set<string>,
+  parcel: ReturnParcel | undefined,
+  registry: ScannedCode | undefined,
+): SearchStatus {
+  if (blacklisted.has(registry?.code ?? parcel?.code ?? '')) return 'prohibited'
+  if (parcel?.status === 'returned') return 'returned'
+  if (registry?.status === 'required-returned') return 'returned'
+  if (registry?.status === 'return-prohibited') return 'prohibited'
+  if (registry?.status === 'not-required') return 'not-required'
+  return 'pending'
 }
 
 function searchableList(list: ReturnList, query: string): boolean {
@@ -123,13 +138,7 @@ export function searchRecords(input: {
     if (!list) continue
     if (filters.listId !== 'all' && list.id !== filters.listId) continue
 
-    let status: SearchStatus
-    if (blacklisted.has(registry?.code ?? parcel?.code ?? '')) status = 'prohibited'
-    else if (parcel?.status === 'returned') status = 'returned'
-    else if (registry?.status === 'required-returned') status = 'returned'
-    else if (registry?.status === 'return-prohibited') status = 'prohibited'
-    else if (registry?.status === 'not-required') status = 'not-required'
-    else status = 'pending'
+    const status = resolveStatus(blacklisted, parcel, registry)
 
     if (filters.status !== 'all' && filters.status !== status) continue
 
@@ -179,4 +188,106 @@ export function searchRecords(input: {
     truncated: all.length > limit,
     matchedLists,
   }
+}
+
+export interface MultiSearchItem {
+  /** Canonical code that was searched. */
+  code: string
+  /** Every matching record, across all lists (empty when not found). */
+  matches: SearchHit[]
+}
+
+export interface MultiSearchResponse {
+  items: MultiSearchItem[]
+  /** Number of distinct codes searched. */
+  total: number
+  found: number
+  missing: number
+}
+
+/**
+ * Looks up many codes at once with an exact (canonical) match.
+ * Duplicate and empty entries are ignored while keeping the input order.
+ */
+export function multiSearchRecords(input: {
+  codes: string[]
+  lists: ReturnList[]
+  parcels: ReturnParcel[]
+  registry: ScannedCode[]
+  blacklist: BlacklistEntry[]
+  filters?: Partial<SearchFilters>
+}): MultiSearchResponse {
+  const filters = { ...EMPTY_FILTERS, ...input.filters }
+  const listById = new Map(input.lists.map((list) => [list.id, list]))
+  const blacklisted = new Set(input.blacklist.map((entry) => entry.code))
+
+  const registryByKey = new Map<string, ScannedCode>()
+  for (const entry of input.registry) registryByKey.set(`${entry.listId}::${entry.code}`, entry)
+  const parcelByKey = new Map<string, ReturnParcel>()
+  for (const parcel of input.parcels) parcelByKey.set(`${parcel.listId}::${parcel.code}`, parcel)
+
+  // Index every stored record by its canonical code so each lookup is O(1).
+  const keysByCode = new Map<string, Set<string>>()
+  const indexKey = (code: string, key: string) => {
+    const canonical = normalizeCode(code)
+    if (!canonical) return
+    let set = keysByCode.get(canonical)
+    if (!set) {
+      set = new Set()
+      keysByCode.set(canonical, set)
+    }
+    set.add(key)
+  }
+  for (const entry of input.registry) indexKey(entry.code, `${entry.listId}::${entry.code}`)
+  for (const parcel of input.parcels) indexKey(parcel.code, `${parcel.listId}::${parcel.code}`)
+
+  const seen = new Set<string>()
+  const items: MultiSearchItem[] = []
+  let found = 0
+
+  for (const raw of input.codes) {
+    const code = normalizeCode(raw)
+    if (!code || seen.has(code)) continue
+    seen.add(code)
+
+    const matches: SearchHit[] = []
+    for (const key of keysByCode.get(code) ?? []) {
+      const registry = registryByKey.get(key)
+      const parcel = parcelByKey.get(key)
+      const list = listById.get((parcel ?? registry)?.listId ?? '')
+      if (!list) continue
+      if (filters.listId !== 'all' && list.id !== filters.listId) continue
+
+      const status = resolveStatus(blacklisted, parcel, registry)
+      if (filters.status !== 'all' && filters.status !== status) continue
+
+      const dateValue =
+        registry?.lastAttemptAt ?? parcel?.returnedAt ?? parcel?.addedAt ?? registry?.firstScanAt
+      if (!inDateRange(dateValue, filters.from, filters.to)) continue
+
+      matches.push({
+        key,
+        code: registry?.code ?? parcel?.code ?? code,
+        listId: list.id,
+        listName: list.name,
+        listStatus: list.status,
+        status,
+        attempts: registry?.attempts ?? 0,
+        firstScanAt: registry?.firstScanAt,
+        lastAttemptAt: registry?.lastAttemptAt ?? parcel?.returnedAt ?? parcel?.addedAt,
+        returnedAt: parcel?.returnedAt,
+        lastResult: registry?.lastResult,
+        registryId: registry?.id,
+        parcelId: parcel?.id,
+        otherListName: registry?.otherListName,
+        rank: 0,
+      })
+    }
+
+    matches.sort((a, b) => (b.lastAttemptAt ?? '').localeCompare(a.lastAttemptAt ?? ''))
+    if (matches.length) found += 1
+    items.push({ code, matches })
+  }
+
+  return { items, total: items.length, found, missing: items.length - found }
 }

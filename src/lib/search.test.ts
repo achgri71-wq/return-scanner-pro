@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BlacklistEntry, ReturnList, ReturnParcel, ScannedCode } from '../types'
-import { searchRecords } from './search'
+import { searchRecords, multiSearchRecords } from './search'
 
 const NOW = '2026-10-27T10:00:00.000Z'
 
@@ -193,5 +193,61 @@ describe('privacy between lists', () => {
     expect(l1?.listName).toBe('Casablanca Centre')
     expect(l2?.listName).toBe('Rabat Agdal')
     expect(l1?.registryId).not.toBe(l2?.registryId)
+  })
+})
+
+describe('multi search', () => {
+  it('matches codes exactly, ignoring partial input', () => {
+    const response = multiSearchRecords({ ...baseInput, codes: ['AB-001234', 'AB-0012'] })
+    expect(response.items[0]?.code).toBe('AB-001234')
+    expect(response.items[0]?.matches).toHaveLength(1)
+    expect(response.items[1]?.code).toBe('AB-0012')
+    expect(response.items[1]?.matches).toHaveLength(0)
+    expect(response.found).toBe(1)
+    expect(response.missing).toBe(1)
+  })
+
+  it('ignores blanks and duplicates while keeping input order', () => {
+    const response = multiSearchRecords({
+      ...baseInput,
+      codes: ['AB-001234', '  ', 'zzz-000', 'ab-001234', ''],
+    })
+    expect(response.items.map((item) => item.code)).toEqual(['AB-001234', 'ZZZ-000'])
+    expect(response.total).toBe(2)
+    expect(response.found).toBe(1)
+    expect(response.missing).toBe(1)
+  })
+
+  it('returns every list a code belongs to', () => {
+    const response = multiSearchRecords({
+      ...baseInput,
+      parcels: [...parcels, parcel('L2', 'DUP-1')],
+      registry: [...scanned, registry('L1', 'DUP-1', 'not-required')],
+      codes: ['DUP-1'],
+    })
+    const matches = response.items[0]?.matches ?? []
+    expect(matches.map((match) => match.listId).sort()).toEqual(['L1', 'L2'])
+  })
+
+  it('applies status and list filters to the matches', () => {
+    const byStatus = multiSearchRecords({
+      ...baseInput,
+      codes: ['AB-001234', 'AB-777777'],
+      filters: { status: 'not-required' },
+    })
+    expect(byStatus.found).toBe(1)
+    expect(byStatus.items.find((item) => item.code === 'AB-001234')?.matches).toHaveLength(0)
+
+    const byList = multiSearchRecords({
+      ...baseInput,
+      codes: ['AB-001234'],
+      filters: { listId: 'L2' },
+    })
+    expect(byList.found).toBe(0)
+  })
+
+  it('marks blacklisted codes as prohibited', () => {
+    const response = multiSearchRecords({ ...baseInput, codes: ['RB-001234'] })
+    expect(response.items[0]?.matches[0]?.status).toBe('prohibited')
   })
 })
