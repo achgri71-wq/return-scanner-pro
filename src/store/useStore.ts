@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { DEFAULT_LINK_KEY, DEFAULT_LINK_URL } from '../lib/flowLink'
 import type {
   AppData,
   AuditAction,
@@ -42,6 +43,8 @@ export const defaultSettings: Settings = {
   adminPin: '',
   activeListId: null,
   currentEmployeeId: null,
+  linkUrl: DEFAULT_LINK_URL,
+  linkKey: DEFAULT_LINK_KEY,
 }
 
 function loadSettings(): Settings {

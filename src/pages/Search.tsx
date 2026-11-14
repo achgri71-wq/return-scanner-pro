@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight,
@@ -14,6 +14,7 @@ import { useStore } from '../store/useStore'
 import { useI18n } from '../i18n'
 import { multiSearchRecords, searchRecords, type SearchStatus } from '../lib/search'
 import { highlightParts, parseCodeBlob } from '../lib/codes'
+import { loadFlowOwners } from '../lib/flowLink'
 import { formatDateTime, cx } from '../lib/utils'
 import { Badge, EmptyState, PageHeader, SearchField, Section, Segmented } from '../components/ui'
 import { CameraScanner } from '../components/CameraScanner'
@@ -50,6 +51,15 @@ export function SearchPage() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [cameraOpen, setCameraOpen] = useState(false)
+
+  // ColisFlow link: which distributor currently holds each code.
+  const [flowTick, setFlowTick] = useState(0)
+  useEffect(() => {
+    const handler = () => setFlowTick((tick) => tick + 1)
+    window.addEventListener('rsp.flow', handler)
+    return () => window.removeEventListener('rsp.flow', handler)
+  }, [])
+  const flowOwners = useMemo(() => loadFlowOwners(), [flowTick])
 
   const trimmed = query.trim()
   const ready = trimmed.length >= 2
@@ -259,35 +269,43 @@ export function SearchPage() {
 
             {results.length ? (
               <div className="result-list">
-                {results.map((hit) => (
-                  <div className="result-row" key={hit.key}>
-                    <div className="result-code">
-                      <strong className="mono">
-                        {highlightParts(hit.code, trimmed).map((part, index) =>
-                          part.hit ? (
-                            <mark key={index}>{part.text}</mark>
-                          ) : (
-                            <span key={index}>{part.text}</span>
-                          ),
-                        )}
-                      </strong>
-                      <small>{hit.listName}</small>
+                {results.map((hit) => {
+                  const owner = flowOwners.get(hit.code.toUpperCase())
+                  return (
+                    <div className="result-row" key={hit.key}>
+                      <div className="result-code">
+                        <strong className="mono">
+                          {highlightParts(hit.code, trimmed).map((part, index) =>
+                            part.hit ? (
+                              <mark key={index}>{part.text}</mark>
+                            ) : (
+                              <span key={index}>{part.text}</span>
+                            ),
+                          )}
+                        </strong>
+                        <small>{hit.listName}</small>
+                      </div>
+                      <div className="result-meta">
+                        <Badge tone={STATUS_TONES[hit.status]} dot>
+                          {t(STATUS_KEYS[hit.status] as 'search.returnedStatus')}
+                        </Badge>
+                        {hit.attempts > 1 ? <Badge tone="warning">{hit.attempts}×</Badge> : null}
+                        {hit.otherListName ? <Badge tone="info">{hit.otherListName}</Badge> : null}
+                        {owner ? (
+                          <Badge tone="accent" dot>
+                            {t('search.atDistributor', { name: owner.name })}
+                          </Badge>
+                        ) : null}
+                        <span className="result-date">
+                          {hit.lastAttemptAt ? formatDateTime(hit.lastAttemptAt, lang) : '—'}
+                        </span>
+                      </div>
+                      <Link to={`/lists/${hit.listId}`} className="icon-btn" title={t('search.openList')}>
+                        <ArrowRight size={17} />
+                      </Link>
                     </div>
-                    <div className="result-meta">
-                      <Badge tone={STATUS_TONES[hit.status]} dot>
-                        {t(STATUS_KEYS[hit.status] as 'search.returnedStatus')}
-                      </Badge>
-                      {hit.attempts > 1 ? <Badge tone="warning">{hit.attempts}×</Badge> : null}
-                      {hit.otherListName ? <Badge tone="info">{hit.otherListName}</Badge> : null}
-                      <span className="result-date">
-                        {hit.lastAttemptAt ? formatDateTime(hit.lastAttemptAt, lang) : '—'}
-                      </span>
-                    </div>
-                    <Link to={`/lists/${hit.listId}`} className="icon-btn" title={t('search.openList')}>
-                      <ArrowRight size={17} />
-                    </Link>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <EmptyState
@@ -327,34 +345,42 @@ export function SearchPage() {
           </div>
 
           <div className="result-list">
-            {multiResponse.items.map((item) => (
-              <div className="result-row" key={item.code}>
-                <div className="result-code">
-                  <strong className="mono">{item.code}</strong>
+            {multiResponse.items.map((item) => {
+              const owner = flowOwners.get(item.code)
+              return (
+                <div className="result-row" key={item.code}>
+                  <div className="result-code">
+                    <strong className="mono">{item.code}</strong>
+                  </div>
+                  <div className="result-meta">
+                    {item.matches.length === 0 ? (
+                      <Badge tone="danger" dot>
+                        {t('search.multiNotFound')}
+                      </Badge>
+                    ) : (
+                      item.matches.map((match) => (
+                        <Link
+                          key={match.key}
+                          to={`/lists/${match.listId}`}
+                          className="multi-match"
+                          title={match.listName}
+                        >
+                          <Badge tone={STATUS_TONES[match.status]} dot>
+                            {t(STATUS_KEYS[match.status] as 'search.returnedStatus')}
+                          </Badge>
+                          <span className="multi-list">{match.listName}</span>
+                        </Link>
+                      ))
+                    )}
+                    {owner ? (
+                      <Badge tone="accent" dot>
+                        {t('search.atDistributor', { name: owner.name })}
+                      </Badge>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="result-meta">
-                  {item.matches.length === 0 ? (
-                    <Badge tone="danger" dot>
-                      {t('search.multiNotFound')}
-                    </Badge>
-                  ) : (
-                    item.matches.map((match) => (
-                      <Link
-                        key={match.key}
-                        to={`/lists/${match.listId}`}
-                        className="multi-match"
-                        title={match.listName}
-                      >
-                        <Badge tone={STATUS_TONES[match.status]} dot>
-                          {t(STATUS_KEYS[match.status] as 'search.returnedStatus')}
-                        </Badge>
-                        <span className="multi-list">{match.listName}</span>
-                      </Link>
-                    ))
-                  )}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </>
       )}

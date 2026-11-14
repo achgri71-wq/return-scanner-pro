@@ -7,6 +7,7 @@ import { useStore } from './store/useStore'
 import { useI18n } from './i18n'
 import { installAudioUnlock } from './lib/feedback'
 import { useWakeLock } from './hooks/useWakeLock'
+import { useFlowLink } from './hooks/useFlowLink'
 import { ListsPage } from './pages/Lists'
 import { ListDetailPage } from './pages/ListDetail'
 import { ScanPage } from './pages/Scan'
@@ -30,6 +31,7 @@ export default function App() {
   const settings = useStore((state) => state.settings)
   const { lang } = useI18n()
   useWakeLock(settings.keepAwake)
+  useFlowLink(ready)
 
   useEffect(() => {
     void init()

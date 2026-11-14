@@ -5,6 +5,7 @@ import {
   Fingerprint,
   Info,
   Moon,
+  PlugZap,
   ScanLine,
   ShieldCheck,
   Smartphone,
@@ -22,6 +23,7 @@ import { useI18n } from '../i18n'
 import { testFeedback, unlockAudio, type SoundKind } from '../lib/feedback'
 import { useInstallPrompt } from '../hooks/useInstallPrompt'
 import { isStandalone } from '../lib/utils'
+import { DEFAULT_LINK_KEY, DEFAULT_LINK_URL, flowErrorKey, testLink } from '../lib/flowLink'
 import {
   Badge,
   PageHeader,
@@ -49,6 +51,21 @@ export function SettingsPage() {
   const [adminPin, setAdminPin] = useState(settings.adminPin)
   const [reminderDays, setReminderDays] = useState(String(settings.backupReminderDays))
   const [showPin, setShowPin] = useState(false)
+  const [linkUrl, setLinkUrl] = useState(settings.linkUrl || DEFAULT_LINK_URL)
+  const [linkKey, setLinkKey] = useState(settings.linkKey || DEFAULT_LINK_KEY)
+  const [testing, setTesting] = useState(false)
+
+  const testFlowLink = async () => {
+    setTesting(true)
+    try {
+      await testLink(linkUrl.trim(), linkKey.trim())
+      toast(t('flow.testOk'))
+    } catch (error) {
+      toast(t(flowErrorKey(error)), 'error')
+    } finally {
+      setTesting(false)
+    }
+  }
 
   useEffect(() => {
     setOperatorName(settings.operatorName)
@@ -198,8 +215,63 @@ export function SettingsPage() {
         />
       </Section>
 
-      <Section title={t('settings.security')}>
+      <Section title={t('settings.flowTitle')}>
+        <p className="field-hint flow-hint">{t('settings.flowText')}</p>
         <div className="form-grid">
+          <div className="field">
+            <label className="field-label" htmlFor="link-url">
+              {t('flow.url')}
+            </label>
+            <input
+              id="link-url"
+              className="input mono"
+              value={linkUrl}
+              onChange={(event) => setLinkUrl(event.target.value)}
+              placeholder={DEFAULT_LINK_URL}
+              spellCheck={false}
+            />
+          </div>
+          <div className="field">
+            <label className="field-label" htmlFor="link-key">
+              {t('flow.key')}
+            </label>
+            <input
+              id="link-key"
+              className="input mono"
+              type="password"
+              value={linkKey}
+              onChange={(event) => setLinkKey(event.target.value)}
+              placeholder="••••"
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </div>
+        </div>
+        <div className="form-actions">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              setSettings({ linkUrl: linkUrl.trim(), linkKey: linkKey.trim() })
+              toast(t('toast.settingsSaved'))
+            }}
+          >
+            {t('common.save')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => void testFlowLink()}
+            disabled={testing || !linkUrl.trim() || !linkKey.trim()}
+          >
+            <PlugZap size={16} />
+            {testing ? t('flow.testing') : t('flow.test')}
+          </button>
+        </div>
+        <small className="field-hint">{t('flow.autoNote')}</small>
+      </Section>
+
+      <Section title={t('settings.security')}>        <div className="form-grid">
           <div className="field">
             <label className="field-label" htmlFor="operator-name">
               <UserRound size={14} /> {t('settings.operator')}

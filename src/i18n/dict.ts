@@ -480,6 +480,27 @@ export const messages = {
   'search.multiMissing': ['{count} introuvable(s)', '{count} غير موجود'],
   'search.multiNotFound': ['Introuvable', 'غير موجود'],
 
+  'settings.flowTitle': ['ColisFlow', 'ColisFlow'],
+  'settings.flowText': [
+    'Direct link with ColisFlow: publish return statuses and show, in the search, which distributor holds each code.',
+    'ربط مباشر مع ColisFlow: نشر حالات الإرجاع، وإظهار الموزع الذي يملك كل كود في نتائج البحث.',
+  ],
+  'flow.url': ['Server link URL', 'رابط الخادم'],
+  'flow.key': ['API key', 'مفتاح API'],
+  'flow.test': ['Tester', 'اختبار'],
+  'flow.testing': ['Test…', 'اختبار…'],
+  'flow.testOk': ['Link working', 'الربط يعمل'],
+  'flow.errAuth': ['API key rejected', 'مفتاح API مرفوض'],
+  'flow.errNetwork': ['Cannot reach the server', 'تعذر الاتصال بالخادم'],
+  'flow.errServer': ['Server error', 'خطأ في الخادم'],
+  'flow.synced': ['{count} status(es) published to ColisFlow', 'تم نشر {count} حالة إلى ColisFlow'],
+  'flow.autoNote': [
+    'Publishing runs automatically every 5 minutes while the app is open.',
+    'يتم النشر تلقائياً كل 5 دقائق طالما التطبيق مفتوح.',
+  ],
+  'search.atDistributor': ['At {name}', 'عند {name}'],
+  'search.flowOwnerHint': ['Current distributor (ColisFlow)', 'الموزع الحالي (ColisFlow)'],
+
   // @@END@@
 } as const satisfies Record<string, readonly [string, string]>
 
