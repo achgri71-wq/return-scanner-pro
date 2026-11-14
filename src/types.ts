@@ -138,9 +138,6 @@ export interface Settings {
   currentEmployeeId?: string | null
   operatorName: string
   adminPin: string
-  /** Direct link with ColisFlow through the shared SUD server. */
-  linkUrl: string
-  linkKey: string
 }
 
 export interface AppData {

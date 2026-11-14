@@ -1,17 +1,17 @@
+import { openDB, type IDBPDatabase } from 'idb'
 import type { ScannedCode } from '../types'
 
 /**
  * Direct link between Return Scanner Pro and ColisFlow.
  *
- * Both apps are static PWAs, so they cannot talk to each other directly.
- * The shared SUD server acts as the bus: this app publishes its return
- * statuses under the `rsp` slot, and reads the `flow` slot that ColisFlow
- * publishes with its distributor lists. Auth uses the same bridge API key.
+ * Both apps are hosted on the same origin (achgri71-wq.github.io), so they
+ * share the browser's storage. This module exchanges snapshots through a
+ * small shared IndexedDB database: this app publishes its return statuses
+ * under the `rsp` slot, and reads the `flow` slot that ColisFlow publishes
+ * with its distributor lists. No server, no account, works offline.
  */
 
-export const DEFAULT_LINK_URL = 'https://suddelivery.net/api/link.php'
-export const DEFAULT_LINK_KEY = '2c3b48c5830e0cdfb9b5d4ded507ec76d8c32b58c8f7dedd'
-
+const LINK_DB = 'colislink'
 const SNAPSHOT_KEY = 'rsp.flow.snapshot'
 const DISTRIBUTORS_KEY = 'rsp.flow.distributors'
 
@@ -37,73 +37,62 @@ export interface ReturnPayload {
   at?: string
 }
 
-const ERROR_KEYS: Record<string, 'flow.errAuth' | 'flow.errNetwork' | 'flow.errServer'> = {
-  unauthorized: 'flow.errAuth',
-  'server-error': 'flow.errServer',
-  'network-error': 'flow.errNetwork',
+interface SlotRecord {
+  slot: 'flow' | 'rsp'
+  at: string
+  data: unknown
 }
 
-/** Maps a thrown bridge error to its translation key. */
-export function flowErrorKey(error: unknown): (typeof ERROR_KEYS)[keyof typeof ERROR_KEYS] {
-  const code = error instanceof Error ? error.message : String(error)
-  return ERROR_KEYS[code] ?? 'flow.errNetwork'
-}
+let dbPromise: Promise<IDBPDatabase<{ slots: { key: string; value: SlotRecord } }>> | null = null
+let channel: BroadcastChannel | null = null
 
-async function linkRequest(
-  url: string,
-  key: string,
-  slot: 'flow' | 'rsp',
-  init?: { method: 'GET' | 'PUT'; body?: string },
-): Promise<unknown> {
-  let response: Response
-  try {
-    response = await fetch(`${url.replace(/\/+$/, '')}?action=${init?.body ? 'put' : 'get'}&slot=${slot}`, {
-      method: init?.method ?? 'GET',
-      headers: init?.body ? { 'X-Api-Key': key.trim(), 'Content-Type': 'application/json' } : { 'X-Api-Key': key.trim() },
-      body: init?.body,
+function getLinkDB(): Promise<IDBPDatabase<{ slots: { key: string; value: SlotRecord } }>> {
+  if (!dbPromise) {
+    dbPromise = openDB(LINK_DB, 1, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains('slots')) db.createObjectStore('slots', { keyPath: 'slot' })
+      },
     })
-  } catch {
-    throw new Error('network-error')
   }
+  return dbPromise
+}
 
-  const text = await response.text()
-  let payload: unknown = null
+function notify(): void {
   try {
-    payload = text ? JSON.parse(text) : null
+    if (!channel) channel = new BroadcastChannel('colislink')
+    channel.postMessage({ t: Date.now() })
   } catch {
-    payload = null
+    /* BroadcastChannel may be unavailable */
   }
-
-  if (response.status === 401) throw new Error('unauthorized')
-  if (!response.ok) throw new Error('server-error')
-
-  const data = payload as { ok?: boolean; data?: unknown } | null
-  if (!data || data.ok !== true) throw new Error('server-error')
-  return data.data ?? null
 }
 
-/** Reads the distributor lists ColisFlow publishes on the bus. */
-export async function fetchFlowDistributors(linkUrl: string, apiKey: string): Promise<FlowDistributor[]> {
-  const payload = await linkRequest(linkUrl, apiKey, 'flow')
-  return normalizeFlowDistributors(payload)
+/** Listens for link updates coming from the other app. */
+export function onLinkUpdate(handler: () => void): () => void {
+  try {
+    if (!channel) channel = new BroadcastChannel('colislink')
+    channel.onmessage = handler
+  } catch {
+    /* BroadcastChannel may be unavailable */
+  }
+  if (typeof window !== 'undefined') window.addEventListener('storage', handler)
+  return () => {
+    if (channel) channel.onmessage = null
+    if (typeof window !== 'undefined') window.removeEventListener('storage', handler)
+  }
 }
 
-/** Publishes this app's return statuses to the bus (full snapshot). */
-export async function putReturnIndex(
-  linkUrl: string,
-  apiKey: string,
-  index: Record<string, ReturnPayload>,
-): Promise<void> {
-  await linkRequest(linkUrl, apiKey, 'rsp', {
-    method: 'PUT',
-    body: JSON.stringify({ returns: index }),
-  })
+/** Writes a slot snapshot into the shared database. */
+export async function putSlot(slot: 'flow' | 'rsp', data: unknown): Promise<void> {
+  const db = await getLinkDB()
+  await db.put('slots', { slot, at: new Date().toISOString(), data })
+  notify()
 }
 
-/** Verifies the server link: read the flow slot and write a harmless probe. */
-export async function testLink(linkUrl: string, apiKey: string): Promise<void> {
-  await fetchFlowDistributors(linkUrl, apiKey)
-  await putReturnIndex(linkUrl, apiKey, { __probe: { s: 'pending', l: '', at: new Date().toISOString() } })
+/** Reads a slot snapshot from the shared database (null when never written). */
+export async function getSlot(slot: 'flow' | 'rsp'): Promise<{ at: string; data: unknown } | null> {
+  const db = await getLinkDB()
+  const record = await db.get('slots', slot)
+  return record ?? null
 }
 
 /**
@@ -209,7 +198,7 @@ function saveSnapshot(snapshot: ReturnSnapshot): void {
 
 /**
  * Compares the fresh return index against the last published snapshot and
- * returns the full index to publish (the bus stores complete snapshots).
+ * returns the full index to publish.
  */
 export function diffReturnIndex(
   entries: ReturnIndexEntry[],
@@ -280,18 +269,17 @@ export function buildReturnIndex(data: {
 }
 
 /**
- * Full background sync: publishes this app's return statuses (only when the
- * index changed since the last publish) and refreshes the distributor cache
- * used by the search page.
+ * Full background sync: publishes this app's return statuses into the shared
+ * database (only when the index changed) and refreshes the distributor cache
+ * used by the search page from ColisFlow's slot.
  */
 export async function syncFlow(
-  linkUrl: string,
-  apiKey: string,
   data: () => Parameters<typeof buildReturnIndex>[0],
 ): Promise<{ pushed: number }> {
   const { index, next, changed } = diffReturnIndex(buildReturnIndex(data()))
-  if (changed > 0) await putReturnIndex(linkUrl, apiKey, index)
+  if (changed > 0) await putSlot('rsp', { returns: index })
   saveSnapshot(next)
-  storeFlowDistributors(await fetchFlowDistributors(linkUrl, apiKey))
+  const flow = await getSlot('flow')
+  storeFlowDistributors(normalizeFlowDistributors(flow?.data ?? []))
   return { pushed: changed }
 }
