@@ -493,6 +493,24 @@ export const messages = {
   'search.atDistributor': ['At {name}', 'عند {name}'],
   'search.flowOwnerHint': ['Current distributor (ColisFlow)', 'الموزع الحالي (ColisFlow)'],
 
+  'nav.fixed': ['Routeurs', 'الموجّهون'],
+  'fixed.title': ['Listes routeurs', 'قوائم الموجّهين'],
+  'fixed.subtitle': ['Vue en lecture seule, remplie depuis ColisFlow.', 'عرض للقراءة فقط، يُملأ انطلاقاً من ColisFlow.'],
+  'fixed.total': ['{count} colis au total', 'إجمالي {count} طرد'],
+  'fixed.refresh': ['Actualiser', 'تحديث'],
+  'fixed.search': ['Rechercher un code…', 'بحث عن رمز…'],
+  'fixed.codes': ['{count} colis', '{count} طرد'],
+  'fixed.loadMore': ['Afficher plus ({count})', 'عرض المزيد ({count})'],
+  'fixed.noStatus': ['Inconnu', 'غير معروف'],
+  'fixed.emptyList': ['Aucun colis dans cette liste.', 'لا توجد طرود في هذه القائمة.'],
+  'fixed.notLinked': ['Aucune liste routeur', 'لا توجد قوائم موجّهين'],
+  'fixed.notLinkedText': [
+    'Les listes apparaîtront ici dès que ColisFlow les aura publiées dans ce navigateur.',
+    'ستظهر القوائم هنا بمجرد أن ينشرها ColisFlow في هذا المتصفح.',
+  ],
+  'fixed.noMatch': ['Aucun code trouvé', 'لم يتم العثور على رمز'],
+  'fixed.noMatchText': ['Essayez un autre code.', 'جرّب رمزاً آخر.'],
+
   // @@END@@
 } as const satisfies Record<string, readonly [string, string]>
 

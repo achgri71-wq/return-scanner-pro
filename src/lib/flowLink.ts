@@ -171,6 +171,17 @@ export function storeFlowDistributors(list: FlowDistributor[]): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('rsp.flow'))
 }
 
+/** Reads the cached ColisFlow distributor lists (refreshed by the sync hook). */
+export function loadFlowDistributors(): FlowDistributor[] {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(DISTRIBUTORS_KEY) || '[]')
+    if (!Array.isArray(parsed)) return []
+    return parsed as FlowDistributor[]
+  } catch {
+    return []
+  }
+}
+
 interface ReturnSnapshot {
   [code: string]: string
 }

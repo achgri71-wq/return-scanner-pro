@@ -10,6 +10,7 @@ import { useWakeLock } from './hooks/useWakeLock'
 import { useFlowLink } from './hooks/useFlowLink'
 import { ListsPage } from './pages/Lists'
 import { ListDetailPage } from './pages/ListDetail'
+import { FixedListsPage } from './pages/FixedLists'
 import { ScanPage } from './pages/Scan'
 import { SearchPage } from './pages/Search'
 import { RecordsPage } from './pages/Records'
@@ -74,6 +75,7 @@ export default function App() {
           <Route index element={<Navigate to="/scan" replace />} />
           <Route path="lists" element={<ListsPage />} />
           <Route path="lists/:listId" element={<ListDetailPage />} />
+          <Route path="fixed" element={<FixedListsPage />} />
           <Route path="scan" element={<ScanPage />} />
           <Route path="search" element={<SearchPage />} />
           <Route path="returned" element={<Navigate to="/records" replace />} />

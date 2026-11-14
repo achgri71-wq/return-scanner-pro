@@ -5,6 +5,7 @@ import {
   BadgeAlert,
   BarChart3,
   BookOpen,
+  Boxes,
   ClipboardList,
   Cloud,
   CloudOff,
@@ -59,6 +60,7 @@ export function Layout() {
   ]
 
   const secondary: NavItem[] = [
+    { to: '/fixed', label: t('nav.fixed'), icon: Boxes },
     { to: '/records', label: t('nav.records'), icon: ClipboardList },
     { to: '/blacklist', label: t('nav.blacklist'), icon: BadgeAlert },
     { to: '/reports', label: t('nav.reports'), icon: BarChart3 },
@@ -250,6 +252,7 @@ export function MorePage() {
   const { t } = useI18n()
 
   const items = [
+    { to: '/fixed', label: t('fixed.title'), icon: Boxes, tone: 'indigo' },
     { to: '/records?tab=returned', label: t('returned.title'), icon: PackageCheck, tone: 'green' },
     { to: '/records?tab=remaining', label: t('remaining.title'), icon: ClipboardList, tone: 'amber' },
     { to: '/records?tab=notRequired', label: t('notRequired.title'), icon: PackageX, tone: 'orange' },
