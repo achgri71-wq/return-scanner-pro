@@ -503,6 +503,8 @@ export const messages = {
   'fixed.loadMore': ['Afficher plus ({count})', 'عرض المزيد ({count})'],
   'fixed.expand': ['Déplier', 'توسيع'],
   'fixed.collapse': ['Plier', 'طيّ'],
+  'fixed.others': ['Autres listes (ColisFlow)', 'قوائم أخرى (ColisFlow)'],
+  'fixed.more': ['{count} autres…', '{count} أخرى…'],
   'fixed.noStatus': ['Inconnu', 'غير معروف'],
   'fixed.emptyList': ['Aucun colis dans cette liste.', 'لا توجد طرود في هذه القائمة.'],
   'fixed.notLinked': ['Aucune liste routeur', 'لا توجد قوائم موجّهين'],

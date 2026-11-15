@@ -20,6 +20,8 @@ export type ReturnStatus = 'returned' | 'pending' | 'not-required' | 'prohibited
 export interface FlowDistributor {
   name: string
   codes: string[]
+  /** Entry date of each code, aligned with `codes` (empty when unknown). */
+  dates?: string[]
   date?: string
   archived: boolean
 }
@@ -114,14 +116,36 @@ export function normalizeFlowDistributors(raw: unknown): FlowDistributor[] {
   const result: FlowDistributor[] = []
   for (const [, value] of entries) {
     if (!value || typeof value !== 'object') continue
-    const record = value as { name?: unknown; codes?: unknown; date?: unknown; archived?: unknown }
+    const record = value as {
+      name?: unknown
+      codes?: unknown
+      dates?: unknown
+      date?: unknown
+      archived?: unknown
+    }
     const name = String(record.name ?? '').trim()
     if (!name) continue
 
     const rawDate = typeof record.date === 'string' ? record.date : undefined
+    const rawCodes = codesOf(record.codes).filter(Boolean)
+    const rawDates = Array.isArray(record.dates)
+      ? record.dates.map((entry) => (typeof entry === 'string' ? entry : ''))
+      : []
+
+    // Deduplicate codes while keeping the first entry date of each one,
+    // so `dates` stays aligned with `codes`.
+    const seen = new Map<string, string>()
+    for (let index = 0; index < rawCodes.length; index += 1) {
+      const code = rawCodes[index]
+      if (seen.has(code)) continue
+      const at = rawDates[index] ?? ''
+      seen.set(code, at && !Number.isNaN(Date.parse(at)) ? at : '')
+    }
+
     result.push({
       name,
-      codes: Array.from(new Set(codesOf(record.codes).filter(Boolean))),
+      codes: Array.from(seen.keys()),
+      dates: Array.from(seen.values()),
       date: rawDate && !Number.isNaN(Date.parse(rawDate)) ? rawDate : undefined,
       archived: Boolean(record.archived),
     })

@@ -101,4 +101,24 @@ describe('normalizeFlowDistributors', () => {
     expect(normalizeFlowDistributors({ bad: { name: '  ' }, ok: null, other: 42 })).toEqual([])
     expect(normalizeFlowDistributors(null)).toEqual([])
   })
+
+  it('aligns entry dates with codes and keeps the first date of duplicates', () => {
+    const list = normalizeFlowDistributors([
+      {
+        name: 'Rachid',
+        codes: ['DH1', 'DH2', 'DH1'],
+        dates: ['2026-11-13T08:00:00.000Z', 'not-a-date', '2026-11-12T08:00:00.000Z'],
+      },
+    ])
+    expect(list[0].codes).toEqual(['DH1', 'DH2'])
+    expect(list[0].dates).toEqual(['2026-11-13T08:00:00.000Z', ''])
+  })
+
+  it('keeps working with legacy payloads without per-code dates', () => {
+    const list = normalizeFlowDistributors([
+      { name: 'Rachid', codes: ['DH1', 'DH2'], date: '2026-11-13T00:00:00.000Z' },
+    ])
+    expect(list[0].codes).toEqual(['DH1', 'DH2'])
+    expect(list[0].dates).toEqual(['', ''])
+  })
 })
