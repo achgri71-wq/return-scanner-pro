@@ -5465,6 +5465,18 @@ html[dir='rtl'] .audit-row {
   white-space: nowrap;
 }
 
+.fixed-result-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.fixed-result-chevron {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
 .fixed-result-sub {
   display: flex;
   align-items: center;

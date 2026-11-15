@@ -512,6 +512,8 @@ export const messages = {
   'fixed.labelList': ['Liste de retours', 'قائمة الإرجاع'],
   'fixed.labelBlacklist': ['Liste noire', 'القائمة السوداء'],
   'fixed.notInEntrepot': ['Absent de l’entrepôt', 'غير موجود في المخزن'],
+  'fixed.inEntrepot': ['En entrepôt', 'في المخزن'],
+  'fixed.notInColisflow': ['Absent de ColisFlow', 'غير موجود في ColisFlow'],
   'fixed.noStatus': ['Inconnu', 'غير معروف'],
   'fixed.emptyList': ['Aucun colis dans cette liste.', 'لا توجد طرود في هذه القائمة.'],
   'fixed.notLinked': ['Aucune liste routeur', 'لا توجد قوائم موجّهين'],

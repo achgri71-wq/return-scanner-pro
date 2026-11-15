@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Boxes, ChevronDown, Inbox, RefreshCw, ScrollText } from 'lucide-react'
+import { Boxes, ChevronDown, ChevronRight, Inbox, RefreshCw, ScrollText } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import type { ScannedCode } from '../types'
 import { useI18n, type TKey } from '../i18n'
 import {
   buildReturnIndex,
@@ -41,9 +42,12 @@ const STATUS_KEYS: Record<ReturnStatus, TKey> = {
 
 interface CodeHit {
   code: string
-  listName: string
+  /** ColisFlow list holding the code (absent when only the Entrepôt knows it). */
+  listName?: string
   date?: string
   archived: boolean
+  /** Already present in this app's own scan registry (Entrepôt). */
+  inEntrepot: boolean
 }
 
 /** Full record of one code: ColisFlow side + this app's own data (Entrepôt…). */
@@ -99,8 +103,14 @@ function CodeRecordModal({
           <div className="code-record-row">
             <span className="code-record-label">{t('fixed.labelColisflow')}</span>
             <div className="code-record-value">
-              <strong>{hit.listName}</strong>
-              {hit.date ? <small>{formatDateTime(hit.date, lang)}</small> : null}
+              {hit.listName ? (
+                <>
+                  <strong>{hit.listName}</strong>
+                  {hit.date ? <small>{formatDateTime(hit.date, lang)}</small> : null}
+                </>
+              ) : (
+                <Badge tone="muted">{t('fixed.notInColisflow')}</Badge>
+              )}
             </div>
           </div>
 
@@ -306,24 +316,49 @@ export function FixedListsPage() {
     return map
   }, [flow])
 
-  // Flat search results: every matching code with its list, entry date and status.
+  // Codes already present in this app's own scan registry (Entrepôt).
+  const registryOf = useMemo(() => {
+    const map = new Map<string, ScannedCode>()
+    for (const entry of registry) {
+      const key = entry.code.trim().toUpperCase()
+      if (key && !map.has(key)) map.set(key, entry)
+    }
+    return map
+  }, [registry])
+
+  // Flat search results: every matching code with its list, entry date and
+  // status, plus the codes only the Entrepôt knows about.
   const results = useMemo<CodeHit[]>(() => {
     if (!needle) return []
     const hits: CodeHit[] = []
+    const seen = new Set<string>()
     for (const item of flow) {
       for (const code of item.codes) {
         if (!code.toLowerCase().includes(needle)) continue
+        const key = code.toUpperCase()
+        seen.add(key)
         hits.push({
           code,
           listName: item.name,
-          date: dateOf.get(code.toUpperCase()) || item.date,
+          date: dateOf.get(key) || item.date,
           archived: item.archived,
+          inEntrepot: registryOf.has(key),
         })
       }
     }
+    // Codes scanned into the Entrepôt that ColisFlow does not publish.
+    for (const [key, entry] of registryOf) {
+      if (seen.has(key) || !key.toLowerCase().includes(needle)) continue
+      hits.push({
+        code: entry.code,
+        date: entry.firstScanAt,
+        archived: false,
+        inEntrepot: true,
+      })
+    }
     hits.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
     return hits
-  }, [flow, needle, dateOf])
+  }, [flow, needle, dateOf, registryOf])
 
   // Opens the record of a code clicked inside a grouped list card.
   const openFromCard = (code: string, listName: string) => {
@@ -333,6 +368,7 @@ export function FixedListsPage() {
       listName,
       date: dateOf.get(code.toUpperCase()) || item?.date,
       archived: item?.archived ?? false,
+      inEntrepot: registryOf.has(code.toUpperCase()),
     })
   }
 
@@ -420,7 +456,7 @@ export function FixedListsPage() {
                   {results.slice(0, RESULT_CAP).map((hit) => {
                     const status = statusOf.get(hit.code.toUpperCase())
                     return (
-                      <li key={`${hit.listName}-${hit.code}`}>
+                      <li key={`${hit.listName ?? ''}-${hit.code}`}>
                         <button
                           type="button"
                           className={cx('fixed-result', hit.archived && 'is-archived')}
@@ -429,14 +465,22 @@ export function FixedListsPage() {
                         >
                           <span className="fixed-result-top">
                             <span className="mono">{hit.code}</span>
-                            {status ? (
-                              <Badge tone={STATUS_TONES[status]}>{t(STATUS_KEYS[status])}</Badge>
-                            ) : (
-                              <Badge tone="muted">{t('fixed.noStatus')}</Badge>
-                            )}
+                            <span className="fixed-result-badges">
+                              {status ? (
+                                <Badge tone={STATUS_TONES[status]}>{t(STATUS_KEYS[status])}</Badge>
+                              ) : (
+                                <Badge tone="muted">{t('fixed.noStatus')}</Badge>
+                              )}
+                              <ChevronRight size={15} className="fixed-result-chevron" />
+                            </span>
                           </span>
                           <span className="fixed-result-sub">
-                            <span className="fixed-result-list">{hit.listName}</span>
+                            {hit.listName ? (
+                              <span className="fixed-result-list">{hit.listName}</span>
+                            ) : null}
+                            {hit.inEntrepot ? (
+                              <Badge tone="info">{t('fixed.inEntrepot')}</Badge>
+                            ) : null}
                             {hit.archived ? <Badge tone="muted">{t('status.archived')}</Badge> : null}
                             <span>{hit.date ? formatDateTime(hit.date, lang) : '—'}</span>
                           </span>
