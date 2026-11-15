@@ -586,7 +586,6 @@ export const messages = {
   'late.copyFailed': ['Impossible de copier. Vérifiez les permissions du navigateur.', 'تعذّر النسخ. تحقق من صلاحيات المتصفح.'],
   'late.mergeSelected': ['Fusionner les listes', 'دمج القوائم'],
   'late.mergeHint': ['Sélectionnez au moins deux listes. Les fusions sont enregistrées sur cet appareil et suivent les codes en retard des listes sources ; ColisFlow reste inchangé.', 'حدد قائمتين أو أكثر. تُحفظ القوائم المدمجة على هذا الجهاز وتتابع الأكواد المتأخرة في القوائم الأصلية؛ بيانات ColisFlow لا تتغير.'],
-  'late.defaultMergeName': ['Fusion {count} listes', 'دمج {count} قوائم'],
   'late.nameMergeTitle': ['Nommer la liste fusionnée', 'تسمية القائمة المدمجة'],
   'late.renameMergeTitle': ['Renommer la liste fusionnée', 'إعادة تسمية القائمة المدمجة'],
   'late.mergeNameLabel': ['Nom', 'الاسم'],

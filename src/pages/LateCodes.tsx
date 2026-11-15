@@ -481,10 +481,13 @@ export function LateCodesPage() {
   }
 
   const mergeSelectedLists = () => {
-    if (selectedVisible.length < 2) return
+    const selectedInOrder = Array.from(selectedGroups)
+      .map((id) => visibleGroups.find((group) => group.id === id))
+      .filter((group): group is LateGroup => Boolean(group))
+    if (selectedInOrder.length < 2) return
     setMergeDialog({
-      name: t('late.defaultMergeName', { count: selectedVisible.length }),
-      sourceNames: selectedVisible.map((group) => group.name),
+      name: selectedInOrder[0].name,
+      sourceNames: selectedInOrder.map((group) => group.name),
     })
   }
 
