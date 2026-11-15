@@ -98,7 +98,9 @@ export function LateCodesPage() {
 
     const result: LateGroup[] = []
     for (const item of flow) {
-      if (item.archived || isFixedDistributor(item)) continue
+      // Archived distributors still count: only permanent routeur lists are
+      // excluded from late-code notices.
+      if (isFixedDistributor(item)) continue
       const dates = item.dates ?? []
       const since = item.since ?? []
       const late: LateCode[] = []
