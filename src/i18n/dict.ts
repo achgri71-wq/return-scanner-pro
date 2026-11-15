@@ -501,6 +501,8 @@ export const messages = {
   'fixed.search': ['Rechercher un code…', 'بحث عن رمز…'],
   'fixed.codes': ['{count} colis', '{count} طرد'],
   'fixed.loadMore': ['Afficher plus ({count})', 'عرض المزيد ({count})'],
+  'fixed.expand': ['Déplier', 'توسيع'],
+  'fixed.collapse': ['Plier', 'طيّ'],
   'fixed.noStatus': ['Inconnu', 'غير معروف'],
   'fixed.emptyList': ['Aucun colis dans cette liste.', 'لا توجد طرود في هذه القائمة.'],
   'fixed.notLinked': ['Aucune liste routeur', 'لا توجد قوائم موجّهين'],

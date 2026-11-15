@@ -5325,9 +5325,17 @@ html[dir='rtl'] .audit-row {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
 }
 
-.fixed-card-head h2 {
+.fixed-card-name {
   flex: 1;
   min-width: 0;
   font-size: 15px;
@@ -5335,6 +5343,16 @@ html[dir='rtl'] .audit-row {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.fixed-chevron {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: transform 0.18s;
+}
+
+.fixed-card-head[aria-expanded='false'] .fixed-chevron {
+  transform: rotate(-90deg);
 }
 
 .fixed-card-icon {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Boxes, Inbox, RefreshCw } from 'lucide-react'
+import { Boxes, ChevronDown, Inbox, RefreshCw } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useI18n, type TKey } from '../i18n'
 import {
@@ -50,6 +50,7 @@ function FixedListCard({
 }) {
   const { t } = useI18n()
   const [limit, setLimit] = useState(PER_LIST_CAP)
+  const [open, setOpen] = useState(true)
 
   useEffect(() => {
     setLimit(PER_LIST_CAP)
@@ -58,45 +59,54 @@ function FixedListCard({
   const visible = codes.slice(0, limit)
 
   return (
-    <article className="fixed-card">
-      <header className="fixed-card-head">
+    <article className={cx('fixed-card', !open && 'is-collapsed')}>
+      <button
+        type="button"
+        className="fixed-card-head"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-label={open ? t('fixed.collapse') : t('fixed.expand')}
+      >
         <span className="fixed-card-icon">
           <Boxes size={18} />
         </span>
-        <h2>{name}</h2>
+        <span className="fixed-card-name">{name}</span>
         <Badge tone="accent">{t('fixed.codes', { count: codes.length })}</Badge>
-      </header>
+        <ChevronDown size={18} className="fixed-chevron" />
+      </button>
 
-      {codes.length ? (
-        <>
-          <ul className="fixed-codes">
-            {visible.map((code) => {
-              const status = statusOf.get(code.toUpperCase())
-              return (
-                <li key={code} className="fixed-code-row">
-                  <span className="mono">{code}</span>
-                  {status ? (
-                    <Badge tone={STATUS_TONES[status]}>{t(STATUS_KEYS[status])}</Badge>
-                  ) : (
-                    <Badge tone="muted">{t('fixed.noStatus')}</Badge>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-          {codes.length > limit ? (
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm fixed-more"
-              onClick={() => setLimit((value) => value + PER_LIST_CAP)}
-            >
-              {t('fixed.loadMore', { count: codes.length - limit })}
-            </button>
-          ) : null}
-        </>
-      ) : (
-        <p className="fixed-empty">{t('fixed.emptyList')}</p>
-      )}
+      {open ? (
+        codes.length ? (
+          <>
+            <ul className="fixed-codes">
+              {visible.map((code) => {
+                const status = statusOf.get(code.toUpperCase())
+                return (
+                  <li key={code} className="fixed-code-row">
+                    <span className="mono">{code}</span>
+                    {status ? (
+                      <Badge tone={STATUS_TONES[status]}>{t(STATUS_KEYS[status])}</Badge>
+                    ) : (
+                      <Badge tone="muted">{t('fixed.noStatus')}</Badge>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+            {codes.length > limit ? (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm fixed-more"
+                onClick={() => setLimit((value) => value + PER_LIST_CAP)}
+              >
+                {t('fixed.loadMore', { count: codes.length - limit })}
+              </button>
+            ) : null}
+          </>
+        ) : (
+          <p className="fixed-empty">{t('fixed.emptyList')}</p>
+        )
+      ) : null}
     </article>
   )
 }
