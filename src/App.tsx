@@ -11,6 +11,7 @@ import { useFlowLink } from './hooks/useFlowLink'
 import { ListsPage } from './pages/Lists'
 import { ListDetailPage } from './pages/ListDetail'
 import { ColisFlowPage } from './pages/ColisFlow'
+import { ColisDemandePage } from './pages/ColisDemande'
 import { LateCodesPage } from './pages/LateCodes'
 import { ScanPage } from './pages/Scan'
 import { SearchPage } from './pages/Search'
@@ -77,6 +78,7 @@ export default function App() {
           <Route path="lists" element={<ListsPage />} />
           <Route path="lists/:listId" element={<ListDetailPage />} />
           <Route path="colisflow" element={<ColisFlowPage />} />
+          <Route path="colis-demande" element={<ColisDemandePage />} />
           <Route path="late" element={<LateCodesPage />} />
           <Route path="scan" element={<ScanPage />} />
           <Route path="search" element={<SearchPage />} />

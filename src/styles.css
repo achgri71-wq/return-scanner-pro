@@ -5753,3 +5753,169 @@ html[dir='rtl'] .audit-row {
     align-self: flex-end;
   }
 }
+
+/* ---------- Colis demandé (independent code list) ---------- */
+
+.demande-page {
+  gap: 12px;
+}
+
+.demande-add-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+
+.demande-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.demande-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+}
+
+.demande-card-title h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.demande-card-title p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.demande-input {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.demande-add-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.demande-add-actions small {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.demande-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.demande-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.demande-toolbar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.demande-code-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.demande-code-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+}
+
+.demande-code-select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.demande-code-select input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.demande-code-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.demande-code-text strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.demande-code-text small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.demande-code-actions {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+.demande-code-actions .icon-btn:last-child {
+  color: var(--danger);
+}
+
+@media (max-width: 720px) {
+  .demande-add-card {
+    padding: 11px;
+  }
+
+  .demande-toolbar-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .demande-toolbar-actions .btn {
+    justify-content: center;
+    padding-inline: 7px;
+    font-size: 10.5px;
+  }
+
+  .demande-code-row {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .demande-code-row .badge {
+    display: none;
+  }
+}
