@@ -19,8 +19,8 @@ import { CodeRecordModal, type CodeHit } from '../components/CodeRecord'
  *
  * A code is "late" when it has been sitting in a normal ColisFlow distributor
  * for more than three days without being resolved: it has not been returned to
- * us, moved to a permanent routeur list, nor scanned into the Entrepôt. A code
- * swapped between distributors counts from its swap date.
+ * us, moved to a permanent routeur list, nor scanned into the Entrepôt. Every
+ * code counts from its original scan date, even after a distributor change.
  *
  * Each distributor can be notified on WhatsApp with the list of its late codes.
  */
