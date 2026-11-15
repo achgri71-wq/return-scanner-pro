@@ -19,16 +19,16 @@ import { CodeRecordModal, type CodeHit } from '../components/CodeRecord'
  * Late-code notices.
  *
  * A code is "late" when it has been sitting in a normal ColisFlow distributor
- * for more than three days without being resolved: it has not been returned to
- * us, moved to a permanent routeur list, nor scanned into the Entrepôt. When a
- * code was moved to another distributor the count restarts from the move date,
- * while the list keeps showing the code's original scan date.
+ * for the configured number of days (Settings) without being resolved: it has
+ * not been returned to us, moved to a permanent routeur list, nor scanned into
+ * the Entrepôt. When a code was moved to another distributor the count restarts
+ * from the move date, while the list keeps showing the code's original scan
+ * date.
  *
  * Each distributor can be notified on WhatsApp with the list of its late codes.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000
-const LATE_DAYS = 3
 /** Local numbers (06…) are turned into international form for wa.me. */
 const COUNTRY_CODE = '212'
 
@@ -57,6 +57,7 @@ export function LateCodesPage() {
   const parcels = useStore((state) => state.parcels)
   const registry = useStore((state) => state.registry)
   const blacklist = useStore((state) => state.blacklist)
+  const lateDays = useStore((state) => state.settings.lateDays)
 
   const [tick, setTick] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
@@ -112,7 +113,8 @@ export function LateCodesPage() {
         const stamp = Date.parse(from)
         if (Number.isNaN(stamp)) return
         const days = Math.floor((now - stamp) / DAY_MS)
-        if (days <= LATE_DAYS) return
+        // One full day with the distributor already counts as late.
+        if (days < lateDays) return
         late.push({ code, at: at || from, days })
       })
       if (!late.length) continue
@@ -123,7 +125,7 @@ export function LateCodesPage() {
     // Order the distributors by the first letters of their name.
     result.sort((a, b) => a.name.localeCompare(b.name, lang === 'ar' ? 'ar' : 'fr'))
     return result
-  }, [flow, parcels, registry, lang])
+  }, [flow, parcels, registry, lang, lateDays])
 
   const total = useMemo(
     () => groups.reduce((sum, group) => sum + group.codes.length, 0),

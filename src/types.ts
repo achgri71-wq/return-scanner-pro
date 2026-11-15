@@ -133,6 +133,8 @@ export interface Settings {
   autoFocus: boolean
   confirmSwitch: boolean
   backupReminderDays: number
+  /** A ColisFlow code counts as late once it sat this many days with a distributor. */
+  lateDays: number
   lastBackupAt?: string
   activeListId?: string | null
   currentEmployeeId?: string | null

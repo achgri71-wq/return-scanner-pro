@@ -38,6 +38,7 @@ export const defaultSettings: Settings = {
   autoFocus: true,
   confirmSwitch: true,
   backupReminderDays: 7,
+  lateDays: 1,
   operatorName: '',
   adminPin: '',
   activeListId: null,
@@ -57,6 +58,7 @@ function loadSettings(): Settings {
         1,
         365,
       ),
+      lateDays: clamp(Math.round(Number(raw.lateDays ?? defaultSettings.lateDays)), 1, 365),
       activeListId: raw.activeListId ?? null,
       currentEmployeeId: raw.currentEmployeeId ?? null,
     }
@@ -230,6 +232,10 @@ function sanitizeBackupSettings(patch: Partial<Settings> | undefined, current: S
       typeof patch.backupReminderDays === 'number'
         ? clamp(Math.round(patch.backupReminderDays), 1, 365)
         : current.backupReminderDays,
+    lateDays:
+      typeof patch.lateDays === 'number'
+        ? clamp(Math.round(patch.lateDays), 1, 365)
+        : current.lateDays,
     operatorName:
       typeof patch.operatorName === 'string' ? patch.operatorName : current.operatorName,
     adminPin: typeof patch.adminPin === 'string' ? patch.adminPin : current.adminPin,

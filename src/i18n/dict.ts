@@ -492,6 +492,11 @@ export const messages = {
   ],
   'search.atDistributor': ['At {name}', 'عند {name}'],
   'search.flowOwnerHint': ['Current distributor (ColisFlow)', 'الموزع الحالي (ColisFlow)'],
+  'settings.lateDays': ['Délai de retard', 'مدة التأخر'],
+  'settings.lateDaysText': [
+    'A ColisFlow code counts as late after this many days with its distributor.',
+    'يُعتبر طرد ColisFlow متأخراً بعد هذا العدد من الأيام عند الموزّع.',
+  ],
 
   'nav.fixed': ['Routeurs', 'الموجّهون'],
   'fixed.title': ['Listes routeurs', 'قوائم الموجّهين'],
@@ -526,7 +531,7 @@ export const messages = {
 
   'nav.late': ['Retards', 'المتأخرة'],
   'late.title': ['Colis en retard', 'الطرود المتأخرة'],
-  'late.subtitle': ['Colis bloqués depuis plus de 3 jours.', 'طرود عالقة منذ أكثر من 3 أيام.'],
+  'late.subtitle': ['Colis bloqués chez les distributeurs.', 'طرود عالقة عند الموزّعين.'],
   'late.summary': [
     '{count} colis en retard chez {distributors} distributeurs',
     '{count} طرد متأخر لدى {distributors} موزّعين',
@@ -549,7 +554,6 @@ export const messages = {
     'Dernière publication de ColisFlow : {when}.',
     'آخر نشر من ColisFlow: {when}.',
   ],
-
   // @@END@@
 } as const satisfies Record<string, readonly [string, string]>
 

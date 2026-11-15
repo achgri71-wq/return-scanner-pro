@@ -15,6 +15,7 @@ import {
   Monitor,
   UserRound,
   Eye,
+  AlarmClock,
 } from 'lucide-react'
 import type { ThemeMode } from '../types'
 import { useStore } from '../store/useStore'
@@ -48,13 +49,15 @@ export function SettingsPage() {
   const [operatorName, setOperatorName] = useState(settings.operatorName)
   const [adminPin, setAdminPin] = useState(settings.adminPin)
   const [reminderDays, setReminderDays] = useState(String(settings.backupReminderDays))
+  const [lateDays, setLateDays] = useState(String(settings.lateDays))
   const [showPin, setShowPin] = useState(false)
 
   useEffect(() => {
     setOperatorName(settings.operatorName)
     setAdminPin(settings.adminPin)
     setReminderDays(String(settings.backupReminderDays))
-  }, [settings.operatorName, settings.adminPin, settings.backupReminderDays])
+    setLateDays(String(settings.lateDays))
+  }, [settings.operatorName, settings.adminPin, settings.backupReminderDays, settings.lateDays])
 
   const saveIdentity = () => {
     setSettings({
@@ -199,6 +202,29 @@ export function SettingsPage() {
       </Section>
 
       <Section title={t('settings.flowTitle')}>
+        <div className="field">
+          <label className="field-label" htmlFor="late-days">
+            <AlarmClock size={14} /> {t('settings.lateDays')}
+          </label>
+          <div className="input-with-suffix">
+            <input
+              id="late-days"
+              className="input"
+              type="number"
+              min={1}
+              max={365}
+              value={lateDays}
+              onChange={(event) => {
+                const next = event.target.value
+                setLateDays(next)
+                const days = Math.min(365, Math.max(1, Number(next) || 1))
+                setSettings({ lateDays: days })
+              }}
+            />
+            <span>{t('settings.days')}</span>
+          </div>
+          <small className="field-hint">{t('settings.lateDaysText')}</small>
+        </div>
         <p className="field-hint flow-hint">{t('settings.flowText')}</p>
         <small className="field-hint">{t('flow.autoNote')}</small>
       </Section>
