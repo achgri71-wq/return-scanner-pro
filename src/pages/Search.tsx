@@ -4,6 +4,7 @@ import {
   ArrowRight,
   CalendarDays,
   Camera,
+  ChevronRight,
   FilterX,
   ListChecks,
   Search as SearchIcon,
@@ -14,24 +15,11 @@ import { useStore } from '../store/useStore'
 import { useI18n } from '../i18n'
 import { multiSearchRecords, searchRecords, type SearchStatus } from '../lib/search'
 import { highlightParts, parseCodeBlob } from '../lib/codes'
-import { loadFlowOwners } from '../lib/flowLink'
+import { buildReturnIndex, loadFlowDistributors, type ReturnStatus } from '../lib/flowLink'
 import { formatDateTime, cx } from '../lib/utils'
 import { Badge, EmptyState, PageHeader, SearchField, Section, Segmented } from '../components/ui'
 import { CameraScanner } from '../components/CameraScanner'
-
-const STATUS_TONES: Record<SearchStatus, 'success' | 'warning' | 'danger' | 'neutral'> = {
-  returned: 'success',
-  pending: 'warning',
-  'not-required': 'warning',
-  prohibited: 'danger',
-}
-
-const STATUS_KEYS: Record<SearchStatus, string> = {
-  returned: 'search.returnedStatus',
-  pending: 'search.pendingStatus',
-  'not-required': 'search.notRequiredStatus',
-  prohibited: 'search.prohibitedStatus',
-}
+import { CodeRecordModal, STATUS_KEYS, STATUS_TONES, type CodeHit } from '../components/CodeRecord'
 
 type SearchMode = 'single' | 'multi'
 
@@ -51,6 +39,7 @@ export function SearchPage() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [cameraOpen, setCameraOpen] = useState(false)
+  const [selected, setSelected] = useState<CodeHit | null>(null)
 
   // ColisFlow link: which distributor currently holds each code.
   const [flowTick, setFlowTick] = useState(0)
@@ -59,7 +48,54 @@ export function SearchPage() {
     window.addEventListener('rsp.flow', handler)
     return () => window.removeEventListener('rsp.flow', handler)
   }, [])
-  const flowOwners = useMemo(() => loadFlowOwners(), [flowTick])
+  const flow = useMemo(() => loadFlowDistributors(), [flowTick])
+
+  // Distributor holding each code, with its entry date in that list.
+  const flowOwners = useMemo(() => {
+    const map = new Map<string, { name: string; archived: boolean; date?: string }>()
+    for (const item of flow) {
+      const dates = item.dates ?? []
+      item.codes.forEach((code, index) => {
+        const key = code.toUpperCase()
+        if (!map.has(key)) {
+          map.set(key, { name: item.name, archived: item.archived, date: dates[index] || item.date })
+        }
+      })
+    }
+    return map
+  }, [flow])
+
+  // Status of every code, as published to ColisFlow (used by the record panel).
+  const statusOf = useMemo(() => {
+    const listNames = new Map(lists.map((list) => [list.id, list.name]))
+    const index = buildReturnIndex({ parcels, registry, blacklist, listNames })
+    const map = new Map<string, ReturnStatus>()
+    for (const entry of index) map.set(entry.code.toUpperCase(), entry.status)
+    return map
+  }, [lists, parcels, registry, blacklist])
+
+  // Codes present in this app's own scan registry (Entrepôt).
+  const registryOf = useMemo(() => {
+    const set = new Set<string>()
+    for (const entry of registry) {
+      const key = entry.code.trim().toUpperCase()
+      if (key) set.add(key)
+    }
+    return set
+  }, [registry])
+
+  // Opens the full record of a code tapped in the results.
+  const openRecord = (code: string) => {
+    const key = code.toUpperCase()
+    const owner = flowOwners.get(key)
+    setSelected({
+      code,
+      listName: owner?.name,
+      date: owner?.date,
+      archived: owner?.archived ?? false,
+      inEntrepot: registryOf.has(key),
+    })
+  }
 
   const trimmed = query.trim()
   const ready = trimmed.length >= 2
@@ -271,24 +307,34 @@ export function SearchPage() {
               <div className="result-list">
                 {results.map((hit) => {
                   const owner = flowOwners.get(hit.code.toUpperCase())
+                  const inEntrepot = registryOf.has(hit.code.toUpperCase())
                   return (
                     <div className="result-row" key={hit.key}>
-                      <div className="result-code">
-                        <strong className="mono">
-                          {highlightParts(hit.code, trimmed).map((part, index) =>
-                            part.hit ? (
-                              <mark key={index}>{part.text}</mark>
-                            ) : (
-                              <span key={index}>{part.text}</span>
-                            ),
-                          )}
-                        </strong>
-                        <small>{hit.listName}</small>
-                      </div>
+                      <button
+                        type="button"
+                        className="result-code result-open"
+                        onClick={() => openRecord(hit.code)}
+                        aria-label={hit.code}
+                      >
+                        <span className="result-code-text">
+                          <strong className="mono">
+                            {highlightParts(hit.code, trimmed).map((part, index) =>
+                              part.hit ? (
+                                <mark key={index}>{part.text}</mark>
+                              ) : (
+                                <span key={index}>{part.text}</span>
+                              ),
+                            )}
+                          </strong>
+                          <small>{hit.listName}</small>
+                        </span>
+                        <ChevronRight size={16} className="result-open-chevron" />
+                      </button>
                       <div className="result-meta">
                         <Badge tone={STATUS_TONES[hit.status]} dot>
-                          {t(STATUS_KEYS[hit.status] as 'search.returnedStatus')}
+                          {t(STATUS_KEYS[hit.status])}
                         </Badge>
+                        {inEntrepot ? <Badge tone="info">{t('fixed.inEntrepot')}</Badge> : null}
                         {hit.attempts > 1 ? <Badge tone="warning">{hit.attempts}×</Badge> : null}
                         {hit.otherListName ? <Badge tone="info">{hit.otherListName}</Badge> : null}
                         {owner ? (
@@ -347,12 +393,22 @@ export function SearchPage() {
           <div className="result-list">
             {multiResponse.items.map((item) => {
               const owner = flowOwners.get(item.code)
+              const inEntrepot = registryOf.has(item.code)
               return (
                 <div className="result-row" key={item.code}>
-                  <div className="result-code">
-                    <strong className="mono">{item.code}</strong>
-                  </div>
+                  <button
+                    type="button"
+                    className="result-code result-open"
+                    onClick={() => openRecord(item.code)}
+                    aria-label={item.code}
+                  >
+                    <span className="result-code-text">
+                      <strong className="mono">{item.code}</strong>
+                    </span>
+                    <ChevronRight size={16} className="result-open-chevron" />
+                  </button>
                   <div className="result-meta">
+                    {inEntrepot ? <Badge tone="info">{t('fixed.inEntrepot')}</Badge> : null}
                     {item.matches.length === 0 ? (
                       <Badge tone="danger" dot>
                         {t('search.multiNotFound')}
@@ -366,7 +422,7 @@ export function SearchPage() {
                           title={match.listName}
                         >
                           <Badge tone={STATUS_TONES[match.status]} dot>
-                            {t(STATUS_KEYS[match.status] as 'search.returnedStatus')}
+                            {t(STATUS_KEYS[match.status])}
                           </Badge>
                           <span className="multi-list">{match.listName}</span>
                         </Link>
@@ -384,6 +440,12 @@ export function SearchPage() {
           </div>
         </>
       )}
+
+      <CodeRecordModal
+        hit={selected}
+        statusOf={statusOf}
+        onClose={() => setSelected(null)}
+      />
 
       <CameraScanner
         open={cameraOpen}

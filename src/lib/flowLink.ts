@@ -172,24 +172,6 @@ function codesOf(value: unknown): string[] {
   return []
 }
 
-/** Local cache of the shared distributor lists (used by the search page). */
-export function loadFlowOwners(): Map<string, { name: string; archived: boolean }> {
-  const owners = new Map<string, { name: string; archived: boolean }>()
-  try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(DISTRIBUTORS_KEY) || '[]')
-    if (!Array.isArray(parsed)) return owners
-    for (const item of parsed as FlowDistributor[]) {
-      if (!item || typeof item.name !== 'string') continue
-      for (const code of item.codes ?? []) {
-        owners.set(String(code).toUpperCase(), { name: item.name, archived: Boolean(item.archived) })
-      }
-    }
-  } catch {
-    /* no cache yet */
-  }
-  return owners
-}
-
 /** Saves the distributor lists for the search page and notifies listeners. */
 export function storeFlowDistributors(list: FlowDistributor[]): void {
   try {
