@@ -5588,9 +5588,23 @@ html[dir='rtl'] .audit-row {
   color: var(--muted);
 }
 
+.late-delete-group,
+.late-delete-code {
+  flex: none;
+  color: var(--danger);
+}
+
 .late-copy-code {
   align-self: center;
   margin-inline-end: 6px;
+}
+
+.late-code-source {
+  max-width: 120px;
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .late-load-more {

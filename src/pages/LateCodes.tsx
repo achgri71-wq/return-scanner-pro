@@ -10,6 +10,8 @@ import {
   MessageCircle,
   RefreshCw,
   Square,
+  Trash2,
+  X,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useI18n } from '../i18n'
@@ -22,9 +24,9 @@ import {
   type ReturnStatus,
 } from '../lib/flowLink'
 import { isFixedDistributor } from '../lib/fixedLists'
-import { loadRequestedCodes } from '../lib/colisDemande'
+import { loadRequestedCodes, saveRequestedCodes } from '../lib/colisDemande'
 import { cx, formatDate, relativeTime } from '../lib/utils'
-import { Badge, EmptyState, PageHeader, SearchField } from '../components/ui'
+import { Badge, ConfirmDialog, EmptyState, PageHeader, SearchField } from '../components/ui'
 import { CodeRecordModal, type CodeHit } from '../components/CodeRecord'
 import { toast } from '../components/Toast'
 
@@ -43,6 +45,7 @@ import { toast } from '../components/Toast'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const CODE_PAGE_SIZE = 100
+const MERGED_GROUP_ID = 'late-merged-selection'
 /** Local numbers (06…) are turned into international form for wa.me. */
 const COUNTRY_CODE = '212'
 
@@ -50,6 +53,7 @@ interface LateCode {
   code: string
   at: string
   days: number
+  sourceName?: string
 }
 
 interface LateGroup {
@@ -84,6 +88,10 @@ function LateGroupCard({
   onToggle,
   onOpenCode,
   onCopy,
+  onDeleteCode,
+  onDeleteGroup,
+  virtual = false,
+  onRemoveVirtual,
 }: {
   group: LateGroup
   checked: boolean
@@ -92,6 +100,10 @@ function LateGroupCard({
   onToggle: () => void
   onOpenCode: (group: LateGroup, code: LateCode) => void
   onCopy: (codes: LateCode[]) => void
+  onDeleteCode: (group: LateGroup, code: LateCode) => void
+  onDeleteGroup: (group: LateGroup) => void
+  virtual?: boolean
+  onRemoveVirtual?: () => void
 }) {
   const { t, lang } = useI18n()
   const [limit, setLimit] = useState(CODE_PAGE_SIZE)
@@ -99,15 +111,19 @@ function LateGroupCard({
   useEffect(() => setLimit(CODE_PAGE_SIZE), [group.id, group.codes.length])
 
   const header = t('late.waHeader', { name: group.name, count: group.codes.length })
-  const lines = group.codes.map((item) => `• ${item.code} — ${formatDate(item.at, lang)}`)
+  const lines = group.codes.map(
+    (item) => `• ${item.code} — ${formatDate(item.at, lang)}${item.sourceName ? ` (${item.sourceName})` : ''}`,
+  )
   const message = [header, '', ...lines, '', t('late.waFooter')].join('\n')
 
   return (
     <article className={cx('late-card', !expanded && 'is-collapsed')}>
       <header className="late-card-head">
-        <label className="late-group-check" title={t('late.selectGroup', { name: group.name })}>
-          <input type="checkbox" checked={checked} onChange={onSelect} />
-        </label>
+        {!virtual ? (
+          <label className="late-group-check" title={t('late.selectGroup', { name: group.name })}>
+            <input type="checkbox" checked={checked} onChange={onSelect} />
+          </label>
+        ) : null}
         <span className="late-card-icon"><AlarmClock size={18} /></span>
         <button
           type="button"
@@ -118,7 +134,9 @@ function LateGroupCard({
           <span className="late-card-name">{group.name}</span>
           <ChevronDown size={17} className="late-card-chevron" />
         </button>
-        <Badge tone="danger">{t('fixed.codes', { count: group.codes.length })}</Badge>
+        <Badge tone={virtual ? 'accent' : 'danger'}>
+          {virtual ? t('late.mergedBadge') : t('fixed.codes', { count: group.codes.length })}
+        </Badge>
         <button
           type="button"
           className="icon-btn late-copy-group"
@@ -128,6 +146,27 @@ function LateGroupCard({
         >
           <Copy size={15} />
         </button>
+        {virtual ? (
+          <button
+            type="button"
+            className="icon-btn late-remove-merged"
+            onClick={onRemoveVirtual}
+            title={t('late.closeMerged')}
+            aria-label={t('late.closeMerged')}
+          >
+            <X size={16} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="icon-btn late-delete-group"
+            onClick={() => onDeleteGroup(group)}
+            title={t('late.deleteGroupButton')}
+            aria-label={t('late.deleteGroupButton')}
+          >
+            <Trash2 size={15} />
+          </button>
+        )}
         <a
           className="btn btn-primary btn-sm late-wa"
           href={whatsappLink(group.phone, message)}
@@ -144,6 +183,17 @@ function LateGroupCard({
           <ul className="late-codes">
             {group.codes.slice(0, limit).map((item) => (
               <li className="late-code-item" key={item.code}>
+                {!virtual ? (
+                  <button
+                    type="button"
+                    className="icon-btn late-delete-code"
+                    onClick={() => onDeleteCode(group, item)}
+                    title={t('late.deleteCodeButton')}
+                    aria-label={t('late.deleteCodeButton')}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="late-code-row"
@@ -152,6 +202,7 @@ function LateGroupCard({
                 >
                   <span className="mono">{item.code}</span>
                   <span className="late-code-meta">
+                    {item.sourceName ? <span className="late-code-source">{item.sourceName}</span> : null}
                     <span>{formatDate(item.at, lang)}</span>
                     <Badge tone="danger">{t('late.days', { count: item.days })}</Badge>
                   </span>
@@ -205,6 +256,12 @@ export function LateCodesPage() {
   const [query, setQuery] = useState('')
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(() => new Set())
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set())
+  const [mergedList, setMergedList] = useState<{ sourceNames: string[]; codes: LateCode[] } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { type: 'code'; group: LateGroup; code: LateCode }
+    | { type: 'group'; group: LateGroup }
+    | null
+  >(null)
 
   useEffect(() => {
     const handler = () => setTick((value) => value + 1)
@@ -307,11 +364,22 @@ export function LateCodesPage() {
       return nameMatches || codes.length ? [{ ...group, codes }] : []
     })
   }, [groups, needle])
+  const mergedGroup = useMemo<LateGroup | null>(() => {
+    if (!mergedList) return null
+    const name = t('late.mergedTitle', { count: mergedList.sourceNames.length })
+    const nameMatches = name.toLocaleLowerCase().includes(needle)
+    const codes = needle && !nameMatches
+      ? mergedList.codes.filter((item) => item.code.toLocaleLowerCase().includes(needle))
+      : mergedList.codes
+    if (needle && !nameMatches && !codes.length) return null
+    return { id: MERGED_GROUP_ID, name, codes }
+  }, [mergedList, needle, t])
+  const pageGroups = mergedGroup ? [mergedGroup, ...visibleGroups] : visibleGroups
   const selectedVisible = visibleGroups.filter((group) => selectedGroups.has(group.id))
   const allVisibleSelected =
     visibleGroups.length > 0 && selectedVisible.length === visibleGroups.length
   const allVisibleExpanded =
-    visibleGroups.length > 0 && visibleGroups.every((group) => expandedGroups.has(group.id))
+    pageGroups.length > 0 && pageGroups.every((group) => expandedGroups.has(group.id))
 
   const toggleSelectedGroups = () => {
     setSelectedGroups((current) => {
@@ -325,8 +393,8 @@ export function LateCodesPage() {
   const toggleExpandedGroups = () => {
     setExpandedGroups((current) => {
       const next = new Set(current)
-      if (allVisibleExpanded) visibleGroups.forEach((group) => next.delete(group.id))
-      else visibleGroups.forEach((group) => next.add(group.id))
+      if (allVisibleExpanded) pageGroups.forEach((group) => next.delete(group.id))
+      else pageGroups.forEach((group) => next.add(group.id))
       return next
     })
   }
@@ -341,8 +409,8 @@ export function LateCodesPage() {
     }
   }
 
-  const mergeSelectedForWhatsApp = () => {
-    if (!selectedVisible.length) return
+  const mergeSelectedLists = () => {
+    if (selectedVisible.length < 2) return
     const byCode = new Map<string, { code: LateCode; groupName: string }>()
     for (const group of selectedVisible) {
       for (const code of group.codes) {
@@ -350,17 +418,50 @@ export function LateCodesPage() {
         if (!byCode.has(key)) byCode.set(key, { code, groupName: group.name })
       }
     }
-    const entries = Array.from(byCode.values())
-    const header = t('late.waMergedHeader', {
-      count: entries.length,
-      groups: selectedVisible.length,
-    })
-    const lines = entries.map(
-      ({ code, groupName }) => `• ${code.code} — ${formatDate(code.at, lang)} (${groupName})`,
-    )
-    const message = [header, '', ...lines, '', t('late.waFooter')].join('\n')
-    window.open(whatsappLink(undefined, message), '_blank', 'noopener,noreferrer')
+    const sourceNames = selectedVisible.map((group) => group.name)
+    const codes = Array.from(byCode.values()).map(({ code, groupName }) => ({
+      ...code,
+      sourceName: groupName,
+    }))
+    setMergedList({ sourceNames, codes })
+    setSelectedGroups(new Set())
+    setExpandedGroups(new Set([MERGED_GROUP_ID]))
   }
+
+  const confirmDeleteFromDemand = () => {
+    if (!deleteTarget) return
+    const removed = new Set(
+      deleteTarget.type === 'code'
+        ? [deleteTarget.code.code.toUpperCase()]
+        : deleteTarget.group.codes.map((item) => item.code.toUpperCase()),
+    )
+    const next = requestedCodes.filter((item) => !removed.has(item.code.toUpperCase()))
+    try {
+      saveRequestedCodes(next)
+      setRequestedCodes(next)
+      setMergedList(null)
+      if (deleteTarget.type === 'group') {
+        setSelectedGroups((current) => {
+          const nextSelection = new Set(current)
+          nextSelection.delete(deleteTarget.group.id)
+          return nextSelection
+        })
+      }
+      toast(t('late.deletedFromDemand', { count: requestedCodes.length - next.length }), 'success')
+      setDeleteTarget(null)
+    } catch {
+      toast(t('demande.saveFailed'), 'error')
+    }
+  }
+
+  const deleteMessage = deleteTarget?.type === 'group'
+    ? t('late.deleteGroupMsg', {
+        name: deleteTarget.group.name,
+        count: deleteTarget.group.codes.length,
+      })
+    : deleteTarget?.type === 'code'
+      ? t('late.deleteCodeMsg', { code: deleteTarget.code.code })
+      : ''
 
   const refresh = async () => {
     if (refreshing) return
@@ -448,8 +549,8 @@ export function LateCodesPage() {
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
-                onClick={mergeSelectedForWhatsApp}
-                disabled={!selectedVisible.length}
+                onClick={mergeSelectedLists}
+                disabled={selectedVisible.length < 2}
               >
                 <ListChecks size={15} /> {t('late.mergeSelected')}
               </button>
@@ -457,15 +558,18 @@ export function LateCodesPage() {
             <small className="late-merge-hint">{t('late.mergeHint')}</small>
           </div>
 
-          {visibleGroups.length ? (
+          {pageGroups.length ? (
             <div className="late-grid">
-              {visibleGroups.map((group) => (
+              {pageGroups.map((group) => {
+                const virtual = group.id === MERGED_GROUP_ID
+                return (
                 <LateGroupCard
                   key={group.id}
                   group={group}
-                  checked={selectedGroups.has(group.id)}
+                  checked={!virtual && selectedGroups.has(group.id)}
                   expanded={expandedGroups.has(group.id)}
                   onSelect={() => {
+                    if (virtual) return
                     setSelectedGroups((current) => {
                       const next = new Set(current)
                       if (next.has(group.id)) next.delete(group.id)
@@ -484,15 +588,20 @@ export function LateCodesPage() {
                   onOpenCode={(target, code) =>
                     setSelected({
                       code: code.code,
-                      listName: target.name,
+                      listName: code.sourceName || target.name,
                       date: code.at,
                       archived: false,
                       inEntrepot: false,
                     })
                   }
                   onCopy={(items) => void copyCodes(items)}
+                  onDeleteCode={(target, code) => setDeleteTarget({ type: 'code', group: target, code })}
+                  onDeleteGroup={(target) => setDeleteTarget({ type: 'group', group: target })}
+                  virtual={virtual}
+                  onRemoveVirtual={() => setMergedList(null)}
                 />
-              ))}
+                )
+              })}
             </div>
           ) : (
             <EmptyState icon={Inbox} title={t('late.searchEmpty')} text={t('late.searchEmptyText')} />
@@ -501,6 +610,16 @@ export function LateCodesPage() {
       )}
 
       <CodeRecordModal hit={selected} statusOf={statusOf} onClose={() => setSelected(null)} />
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={t(deleteTarget?.type === 'group' ? 'late.deleteGroupTitle' : 'late.deleteCodeTitle')}
+        message={deleteMessage}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        danger
+        onConfirm={confirmDeleteFromDemand}
+        onClose={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }
