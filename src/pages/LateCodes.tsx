@@ -11,6 +11,7 @@ import {
   type ReturnStatus,
 } from '../lib/flowLink'
 import { isFixedDistributor } from '../lib/fixedLists'
+import { loadRequestedCodes } from '../lib/colisDemande'
 import { cx, formatDate, relativeTime } from '../lib/utils'
 import { Badge, EmptyState, PageHeader } from '../components/ui'
 import { CodeRecordModal, type CodeHit } from '../components/CodeRecord'
@@ -62,16 +63,28 @@ export function LateCodesPage() {
   const [tick, setTick] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
   const [selected, setSelected] = useState<CodeHit | null>(null)
+  const [requestedCodes, setRequestedCodes] = useState(() => loadRequestedCodes())
 
   useEffect(() => {
     const handler = () => setTick((value) => value + 1)
+    const reloadRequested = () => setRequestedCodes(loadRequestedCodes())
     window.addEventListener('rsp.flow', handler)
-    return () => window.removeEventListener('rsp.flow', handler)
+    window.addEventListener('rsp.colis-demande', reloadRequested)
+    window.addEventListener('storage', reloadRequested)
+    return () => {
+      window.removeEventListener('rsp.flow', handler)
+      window.removeEventListener('rsp.colis-demande', reloadRequested)
+      window.removeEventListener('storage', reloadRequested)
+    }
   }, [])
 
   const flow = useMemo<FlowDistributor[]>(() => loadFlowDistributors(), [tick])
   // When ColisFlow last published on this browser; null means it never did.
   const publishedAt = useMemo(() => loadFlowPublishedAt(), [tick])
+  const requestedSet = useMemo(
+    () => new Set(requestedCodes.map((item) => item.code.toUpperCase())),
+    [requestedCodes],
+  )
 
   const statusOf = useMemo(() => {
     const listNames = new Map(lists.map((list) => [list.id, list.name]))
@@ -106,6 +119,9 @@ export function LateCodesPage() {
       const late: LateCode[] = []
       item.codes.forEach((code, index) => {
         const key = code.toUpperCase()
+        // A ColisFlow parcel only counts as late when the operator has also
+        // added it to the independent Colis Demandé list in this app.
+        if (!requestedSet.has(key)) return
         if (done.has(key)) return
         const at = dates[index]
         // The late count runs from the move date when the code was moved;
@@ -127,7 +143,7 @@ export function LateCodesPage() {
     // Order the distributors by the first letters of their name.
     result.sort((a, b) => a.name.localeCompare(b.name, lang === 'ar' ? 'ar' : 'fr'))
     return result
-  }, [flow, parcels, registry, lang, lateDays])
+  }, [flow, parcels, registry, lang, lateDays, requestedSet])
 
   const total = useMemo(
     () => groups.reduce((sum, group) => sum + group.codes.length, 0),
@@ -178,6 +194,7 @@ export function LateCodesPage() {
           </button>
         }
       />
+      <p className="late-demand-hint">{t('late.demandHint')}</p>
 
       {!flow.length ? (
         <EmptyState

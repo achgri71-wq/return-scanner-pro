@@ -572,13 +572,14 @@ export const messages = {
 
   'nav.late': ['Retards', 'المتأخرة'],
   'late.title': ['Colis en retard', 'الطرود المتأخرة'],
-  'late.subtitle': ['Colis bloqués chez les distributeurs.', 'طرود عالقة عند الموزّعين.'],
+  'late.subtitle': ['Colis de ColisFlow présents aussi dans Colis demandé.', 'طرود ColisFlow الموجودة أيضاً في Colis demandé.'],
+  'late.demandHint': ['Un colis compte comme en retard uniquement s’il est aussi inscrit dans Colis demandé.', 'يُحتسب الطرد متأخراً فقط إذا كان مسجلاً أيضاً في Colis demandé.'],
   'late.summary': [
-    '{count} colis en retard chez {distributors} distributeurs',
-    '{count} طرد متأخر لدى {distributors} موزّعين',
+    '{count} colis demandé(s) en retard chez {distributors} distributeurs',
+    '{count} طرد مطلوب متأخر لدى {distributors} موزّعين',
   ],
   'late.empty': ['Aucun colis en retard', 'لا توجد طرود متأخرة'],
-  'late.emptyText': ['Tous les colis sont à jour.', 'كل الطرود محدّثة.'],
+  'late.emptyText': ['Aucun colis de Colis demandé n’a dépassé le délai.', 'لا يوجد طرد من Colis demandé تجاوز المهلة.'],
   'late.days': ['{count} j', '{count} يوم'],
   'late.whatsapp': ['WhatsApp', 'واتساب'],
   'late.waHeader': [
