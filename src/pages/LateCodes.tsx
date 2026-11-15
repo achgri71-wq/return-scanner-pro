@@ -400,17 +400,25 @@ export function LateCodesPage() {
     [groups],
   )
 
+  const mergedSourceNames = useMemo(
+    () => new Set(savedMerges.flatMap((merge) => merge.sourceNames.map((name) => name.trim().toLocaleLowerCase()))),
+    [savedMerges],
+  )
+  const unmergedGroups = useMemo(
+    () => groups.filter((group) => !mergedSourceNames.has(group.id)),
+    [groups, mergedSourceNames],
+  )
   const needle = query.trim().toLocaleLowerCase()
   const visibleGroups = useMemo(() => {
-    if (!needle) return groups
-    return groups.flatMap((group) => {
+    if (!needle) return unmergedGroups
+    return unmergedGroups.flatMap((group) => {
       const nameMatches = group.name.toLocaleLowerCase().includes(needle)
       const codes = nameMatches
         ? group.codes
         : group.codes.filter((item) => item.code.toLocaleLowerCase().includes(needle))
       return nameMatches || codes.length ? [{ ...group, codes }] : []
     })
-  }, [groups, needle])
+  }, [unmergedGroups, needle])
   const mergedGroups = useMemo<LateGroup[]>(() => savedMerges.map((merge) => {
     const sources = new Set(merge.sourceNames.map((name) => name.trim().toLocaleLowerCase()))
     const byCode = new Map<string, LateCode>()
@@ -500,6 +508,7 @@ export function LateCodesPage() {
     try {
       saveLateMerges(next)
       setSavedMerges(next)
+      setSelectedGroups(new Set())
       setSelectedAdditionalSources(new Set())
       setAddSourcesMergeId(null)
       toast(t('late.listsAdded', { count: additions.length }), 'success')
