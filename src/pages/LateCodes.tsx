@@ -9,6 +9,7 @@ import {
   ListChecks,
   MessageCircle,
   Pencil,
+  Plus,
   RefreshCw,
   Square,
   Trash2,
@@ -94,6 +95,7 @@ function LateGroupCard({
   virtual = false,
   onRemoveVirtual,
   onRenameVirtual,
+  onAddSources,
 }: {
   group: LateGroup
   checked: boolean
@@ -107,6 +109,7 @@ function LateGroupCard({
   virtual?: boolean
   onRemoveVirtual?: () => void
   onRenameVirtual?: () => void
+  onAddSources?: () => void
 }) {
   const { t, lang } = useI18n()
   const [limit, setLimit] = useState(CODE_PAGE_SIZE)
@@ -151,6 +154,15 @@ function LateGroupCard({
         </button>
         {virtual ? (
           <>
+            <button
+              type="button"
+              className="icon-btn late-add-sources"
+              onClick={onAddSources}
+              title={t('late.addLists')}
+              aria-label={t('late.addLists')}
+            >
+              <Plus size={16} />
+            </button>
             <button
               type="button"
               className="icon-btn late-rename-merged"
@@ -285,6 +297,8 @@ export function LateCodesPage() {
     sourceNames: string[]
   } | null>(null)
   const [removeMergeId, setRemoveMergeId] = useState<string | null>(null)
+  const [addSourcesMergeId, setAddSourcesMergeId] = useState<string | null>(null)
+  const [selectedAdditionalSources, setSelectedAdditionalSources] = useState<Set<string>>(() => new Set())
   const [deleteTarget, setDeleteTarget] = useState<
     | { type: 'code'; group: LateGroup; code: LateCode }
     | { type: 'group'; group: LateGroup }
@@ -419,6 +433,11 @@ export function LateCodesPage() {
   }), [mergedGroups, needle])
   const mergedIds = useMemo(() => new Set(savedMerges.map((merge) => merge.id)), [savedMerges])
   const pageGroups = [...visibleMergedGroups, ...visibleGroups]
+  const addSourcesMerge = savedMerges.find((merge) => merge.id === addSourcesMergeId) ?? null
+  const existingSourceNames = new Set(
+    (addSourcesMerge?.sourceNames ?? []).map((name) => name.trim().toLocaleLowerCase()),
+  )
+  const addableGroups = groups.filter((group) => !existingSourceNames.has(group.id))
   const selectedVisible = visibleGroups.filter((group) => selectedGroups.has(group.id))
   const allVisibleSelected =
     visibleGroups.length > 0 && selectedVisible.length === visibleGroups.length
@@ -463,6 +482,30 @@ export function LateCodesPage() {
 
   const editMergeName = (merge: LateMerge) => {
     setMergeDialog({ id: merge.id, name: merge.name, sourceNames: merge.sourceNames })
+  }
+
+  const addSourcesToMerge = () => {
+    if (!addSourcesMergeId || !selectedAdditionalSources.size) return
+    const merge = savedMerges.find((item) => item.id === addSourcesMergeId)
+    if (!merge) return
+    const additions = groups.filter((group) => selectedAdditionalSources.has(group.id))
+    if (!additions.length) return
+    const nextSourceNames = Array.from(new Set([
+      ...merge.sourceNames,
+      ...additions.map((group) => group.name),
+    ]))
+    const next = savedMerges.map((item) => item.id === merge.id
+      ? { ...item, sourceNames: nextSourceNames }
+      : item)
+    try {
+      saveLateMerges(next)
+      setSavedMerges(next)
+      setSelectedAdditionalSources(new Set())
+      setAddSourcesMergeId(null)
+      toast(t('late.listsAdded', { count: additions.length }), 'success')
+    } catch {
+      toast(t('late.mergeSaveFailed'), 'error')
+    }
   }
 
   const saveMerge = () => {
@@ -692,6 +735,10 @@ export function LateCodesPage() {
                     onDeleteGroup={(target) => setDeleteTarget({ type: 'group', group: target })}
                     virtual={virtual}
                     onRemoveVirtual={() => setRemoveMergeId(group.id)}
+                    onAddSources={() => {
+                      setSelectedAdditionalSources(new Set())
+                      setAddSourcesMergeId(group.id)
+                    }}
                     onRenameVirtual={() => {
                       const merge = savedMerges.find((item) => item.id === group.id)
                       if (merge) editMergeName(merge)
@@ -740,6 +787,50 @@ export function LateCodesPage() {
             autoFocus
           />
         </div>
+      </Modal>
+      <Modal
+        open={addSourcesMerge !== null}
+        title={t('late.addListsTitle', { name: addSourcesMerge?.name ?? '' })}
+        onClose={() => setAddSourcesMergeId(null)}
+        size="sm"
+        footer={(
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setAddSourcesMergeId(null)}>
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={addSourcesToMerge}
+              disabled={!selectedAdditionalSources.size}
+            >
+              {t('late.addSelectedLists')}
+            </button>
+          </>
+        )}
+      >
+        {addableGroups.length ? (
+          <div className="late-add-source-list">
+            {addableGroups.map((group) => (
+              <label className="late-add-source-option" key={group.id}>
+                <input
+                  type="checkbox"
+                  checked={selectedAdditionalSources.has(group.id)}
+                  onChange={() => setSelectedAdditionalSources((current) => {
+                    const next = new Set(current)
+                    if (next.has(group.id)) next.delete(group.id)
+                    else next.add(group.id)
+                    return next
+                  })}
+                />
+                <span>{group.name}</span>
+                <Badge tone="danger">{t('fixed.codes', { count: group.codes.length })}</Badge>
+              </label>
+            ))}
+          </div>
+        ) : (
+          <EmptyState icon={Inbox} title={t('late.noMoreLists')} text={t('late.noMoreListsText')} />
+        )}
       </Modal>
       <ConfirmDialog
         open={removeMergeId !== null}

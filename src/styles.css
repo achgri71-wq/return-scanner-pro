@@ -5594,6 +5594,11 @@ html[dir='rtl'] .audit-row {
   color: var(--danger);
 }
 
+.late-add-sources {
+  flex: none;
+  color: var(--accent);
+}
+
 .late-copy-code {
   align-self: center;
   margin-inline-end: 6px;
@@ -5610,6 +5615,43 @@ html[dir='rtl'] .audit-row {
 .late-load-more {
   display: flex;
   margin: 8px auto;
+}
+
+.late-add-source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.late-add-source-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 7px 9px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.late-add-source-option input {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.late-add-source-option > span:first-of-type {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 720px) {
