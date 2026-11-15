@@ -114,6 +114,20 @@ describe('normalizeFlowDistributors', () => {
     expect(list[0].dates).toEqual(['2026-11-13T08:00:00.000Z', ''])
   })
 
+  it('aligns the move date (since) with codes when published', () => {
+    const list = normalizeFlowDistributors([
+      {
+        name: 'Rachid',
+        codes: ['DH1', 'DH2'],
+        dates: ['2026-11-01T08:00:00.000Z', '2026-11-02T08:00:00.000Z'],
+        since: ['2026-11-13T09:00:00.000Z', 'not-a-date'],
+      },
+    ])
+    expect(list[0].codes).toEqual(['DH1', 'DH2'])
+    expect(list[0].dates).toEqual(['2026-11-01T08:00:00.000Z', '2026-11-02T08:00:00.000Z'])
+    expect(list[0].since).toEqual(['2026-11-13T09:00:00.000Z', ''])
+  })
+
   it('keeps working with legacy payloads without per-code dates', () => {
     const list = normalizeFlowDistributors([
       { name: 'Rachid', codes: ['DH1', 'DH2'], date: '2026-11-13T00:00:00.000Z' },

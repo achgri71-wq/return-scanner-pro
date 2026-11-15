@@ -19,8 +19,9 @@ import { CodeRecordModal, type CodeHit } from '../components/CodeRecord'
  *
  * A code is "late" when it has been sitting in a normal ColisFlow distributor
  * for more than three days without being resolved: it has not been returned to
- * us, moved to a permanent routeur list, nor scanned into the Entrepôt. Every
- * code counts from its original scan date, even after a distributor change.
+ * us, moved to a permanent routeur list, nor scanned into the Entrepôt. When a
+ * code was moved to another distributor the count restarts from the move date,
+ * while the list keeps showing the code's original scan date.
  *
  * Each distributor can be notified on WhatsApp with the list of its late codes.
  */
@@ -95,17 +96,21 @@ export function LateCodesPage() {
     for (const item of flow) {
       if (item.archived || isFixedListName(item.name)) continue
       const dates = item.dates ?? []
+      const since = item.since ?? []
       const late: LateCode[] = []
       item.codes.forEach((code, index) => {
         const key = code.toUpperCase()
         if (done.has(key)) return
         const at = dates[index]
-        if (!at) return
-        const stamp = Date.parse(at)
+        // The late count runs from the move date when the code was moved;
+        // without a move it falls back to the original scan date.
+        const from = since[index] || at
+        if (!from) return
+        const stamp = Date.parse(from)
         if (Number.isNaN(stamp)) return
         const days = Math.floor((now - stamp) / DAY_MS)
         if (days <= LATE_DAYS) return
-        late.push({ code, at, days })
+        late.push({ code, at: at || from, days })
       })
       if (!late.length) continue
       late.sort((a, b) => a.at.localeCompare(b.at))

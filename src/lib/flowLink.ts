@@ -22,8 +22,10 @@ export interface FlowDistributor {
   /** Distributor phone, used to send WhatsApp notices (may be missing). */
   phone?: string
   codes: string[]
-  /** Entry date of each code, aligned with `codes` (empty when unknown). */
+  /** Original scan date of each code, aligned with `codes` (shown in the UI). */
   dates?: string[]
+  /** Date the late count starts from: the move date when the code was moved. */
+  since?: string[]
   date?: string
   archived: boolean
 }
@@ -123,6 +125,7 @@ export function normalizeFlowDistributors(raw: unknown): FlowDistributor[] {
       phone?: unknown
       codes?: unknown
       dates?: unknown
+      since?: unknown
       date?: unknown
       archived?: unknown
     }
@@ -135,22 +138,31 @@ export function normalizeFlowDistributors(raw: unknown): FlowDistributor[] {
     const rawDates = Array.isArray(record.dates)
       ? record.dates.map((entry) => (typeof entry === 'string' ? entry : ''))
       : []
+    const rawSince = Array.isArray(record.since)
+      ? record.since.map((entry) => (typeof entry === 'string' ? entry : ''))
+      : []
 
-    // Deduplicate codes while keeping the first entry date of each one,
-    // so `dates` stays aligned with `codes`.
-    const seen = new Map<string, string>()
+    // Deduplicate codes while keeping the first dates of each one, so `dates`
+    // and `since` stay aligned with `codes`.
+    const seen = new Map<string, { at: string; since: string }>()
     for (let index = 0; index < rawCodes.length; index += 1) {
       const code = rawCodes[index]
       if (seen.has(code)) continue
       const at = rawDates[index] ?? ''
-      seen.set(code, at && !Number.isNaN(Date.parse(at)) ? at : '')
+      const since = rawSince[index] ?? ''
+      seen.set(code, {
+        at: at && !Number.isNaN(Date.parse(at)) ? at : '',
+        since: since && !Number.isNaN(Date.parse(since)) ? since : '',
+      })
     }
+    const values = Array.from(seen.values())
 
     result.push({
       name,
       ...(phone ? { phone } : {}),
       codes: Array.from(seen.keys()),
-      dates: Array.from(seen.values()),
+      dates: values.map((value) => value.at),
+      since: values.map((value) => value.since),
       date: rawDate && !Number.isNaN(Date.parse(rawDate)) ? rawDate : undefined,
       archived: Boolean(record.archived),
     })
