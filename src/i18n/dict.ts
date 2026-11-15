@@ -524,6 +524,23 @@ export const messages = {
   'fixed.noMatch': ['Aucun code trouvé', 'لم يتم العثور على رمز'],
   'fixed.noMatchText': ['Essayez un autre code.', 'جرّب رمزاً آخر.'],
 
+  'nav.late': ['Retards', 'المتأخرة'],
+  'late.title': ['Colis en retard', 'الطرود المتأخرة'],
+  'late.subtitle': ['Colis bloqués depuis plus de 3 jours.', 'طرود عالقة منذ أكثر من 3 أيام.'],
+  'late.summary': [
+    '{count} colis en retard chez {distributors} distributeurs',
+    '{count} طرد متأخر لدى {distributors} موزّعين',
+  ],
+  'late.empty': ['Aucun colis en retard', 'لا توجد طرود متأخرة'],
+  'late.emptyText': ['Tous les colis sont à jour.', 'كل الطرود محدّثة.'],
+  'late.days': ['{count} j', '{count} يوم'],
+  'late.whatsapp': ['WhatsApp', 'واتساب'],
+  'late.waHeader': [
+    'Bonjour {name}, vos colis en retard ({count}) :',
+    'مرحباً {name}، هذه طرودك المتأخرة ({count}):',
+  ],
+  'late.waFooter': ['Merci de les retourner.', 'المرجو إرجاعها.'],
+
   // @@END@@
 } as const satisfies Record<string, readonly [string, string]>
 

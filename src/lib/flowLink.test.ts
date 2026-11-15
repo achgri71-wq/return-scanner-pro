@@ -121,4 +121,13 @@ describe('normalizeFlowDistributors', () => {
     expect(list[0].codes).toEqual(['DH1', 'DH2'])
     expect(list[0].dates).toEqual(['', ''])
   })
+
+  it('reads the distributor phone when published', () => {
+    const list = normalizeFlowDistributors([
+      { name: 'Rachid', phone: ' 0612345678 ', codes: ['DH1'] },
+      { name: 'Sans', codes: ['DH2'] },
+    ])
+    expect(list.find((item) => item.name === 'Rachid')?.phone).toBe('0612345678')
+    expect(list.find((item) => item.name === 'Sans')).not.toHaveProperty('phone')
+  })
 })

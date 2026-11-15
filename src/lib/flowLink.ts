@@ -19,6 +19,8 @@ export type ReturnStatus = 'returned' | 'pending' | 'not-required' | 'prohibited
 
 export interface FlowDistributor {
   name: string
+  /** Distributor phone, used to send WhatsApp notices (may be missing). */
+  phone?: string
   codes: string[]
   /** Entry date of each code, aligned with `codes` (empty when unknown). */
   dates?: string[]
@@ -118,6 +120,7 @@ export function normalizeFlowDistributors(raw: unknown): FlowDistributor[] {
     if (!value || typeof value !== 'object') continue
     const record = value as {
       name?: unknown
+      phone?: unknown
       codes?: unknown
       dates?: unknown
       date?: unknown
@@ -126,6 +129,7 @@ export function normalizeFlowDistributors(raw: unknown): FlowDistributor[] {
     const name = String(record.name ?? '').trim()
     if (!name) continue
 
+    const phone = typeof record.phone === 'string' ? record.phone.trim() : ''
     const rawDate = typeof record.date === 'string' ? record.date : undefined
     const rawCodes = codesOf(record.codes).filter(Boolean)
     const rawDates = Array.isArray(record.dates)
@@ -144,6 +148,7 @@ export function normalizeFlowDistributors(raw: unknown): FlowDistributor[] {
 
     result.push({
       name,
+      ...(phone ? { phone } : {}),
       codes: Array.from(seen.keys()),
       dates: Array.from(seen.values()),
       date: rawDate && !Number.isNaN(Date.parse(rawDate)) ? rawDate : undefined,

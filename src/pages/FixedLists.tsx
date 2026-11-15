@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Boxes, ChevronDown, ChevronRight, Inbox, RefreshCw, ScrollText } from 'lucide-react'
+import { Boxes, ChevronDown, ChevronRight, Inbox, RefreshCw } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { ScannedCode } from '../types'
-import { useI18n, type TKey } from '../i18n'
+import { useI18n } from '../i18n'
 import {
   buildReturnIndex,
   loadFlowDistributors,
@@ -11,9 +11,9 @@ import {
   type ReturnStatus,
 } from '../lib/flowLink'
 import { FIXED_LISTS, isFixedListName } from '../lib/fixedLists'
-import { cx, formatDate, formatDateTime } from '../lib/utils'
-import { Badge, EmptyState, Modal, PageHeader, SearchField, type Tone } from '../components/ui'
-import { ParcelStatusBadge, RegistryStatusBadge } from '../components/StatusBadge'
+import { cx, formatDateTime } from '../lib/utils'
+import { Badge, EmptyState, PageHeader, SearchField } from '../components/ui'
+import { CodeRecordModal, STATUS_KEYS, STATUS_TONES, type CodeHit } from '../components/CodeRecord'
 
 /**
  * Read-only view of the six permanent routeur lists.
@@ -25,151 +25,6 @@ import { ParcelStatusBadge, RegistryStatusBadge } from '../components/StatusBadg
 
 const PER_LIST_CAP = 80
 const RESULT_CAP = 200
-
-const STATUS_TONES: Record<ReturnStatus, Tone> = {
-  returned: 'success',
-  pending: 'warning',
-  'not-required': 'warning',
-  prohibited: 'danger',
-}
-
-const STATUS_KEYS: Record<ReturnStatus, TKey> = {
-  returned: 'search.returnedStatus',
-  pending: 'search.pendingStatus',
-  'not-required': 'search.notRequiredStatus',
-  prohibited: 'search.prohibitedStatus',
-}
-
-interface CodeHit {
-  code: string
-  /** ColisFlow list holding the code (absent when only the Entrepôt knows it). */
-  listName?: string
-  date?: string
-  archived: boolean
-  /** Already present in this app's own scan registry (Entrepôt). */
-  inEntrepot: boolean
-}
-
-/** Full record of one code: ColisFlow side + this app's own data (Entrepôt…). */
-function CodeRecordModal({
-  hit,
-  statusOf,
-  onClose,
-}: {
-  hit: CodeHit | null
-  statusOf: Map<string, ReturnStatus>
-  onClose: () => void
-}) {
-  const { t, lang } = useI18n()
-  const lists = useStore((state) => state.lists)
-  const parcels = useStore((state) => state.parcels)
-  const registry = useStore((state) => state.registry)
-  const blacklist = useStore((state) => state.blacklist)
-
-  const info = useMemo(() => {
-    if (!hit) return null
-    const key = hit.code.toUpperCase()
-    const parcel = parcels.find((entry) => entry.code.toUpperCase() === key) ?? null
-    const entry = registry.find((item) => item.code.toUpperCase() === key) ?? null
-    const banned = blacklist.find((item) => item.code.toUpperCase() === key) ?? null
-    const list = parcel ? lists.find((item) => item.id === parcel.listId) ?? null : null
-    return { parcel, entry, banned, list }
-  }, [hit, parcels, registry, blacklist, lists])
-
-  const status = hit ? statusOf.get(hit.code.toUpperCase()) : undefined
-
-  return (
-    <Modal
-      open={Boolean(hit)}
-      onClose={onClose}
-      title={t('fixed.codeRecord')}
-      subtitle={hit?.code}
-      icon={<ScrollText size={20} />}
-      size="sm"
-    >
-      {hit && info ? (
-        <div className="code-record">
-          <div className="code-record-row">
-            <span className="code-record-label">{t('fixed.labelStatus')}</span>
-            <div className="code-record-value">
-              {status ? (
-                <Badge tone={STATUS_TONES[status]}>{t(STATUS_KEYS[status])}</Badge>
-              ) : (
-                <Badge tone="muted">{t('fixed.noStatus')}</Badge>
-              )}
-            </div>
-          </div>
-
-          <div className="code-record-row">
-            <span className="code-record-label">{t('fixed.labelColisflow')}</span>
-            <div className="code-record-value">
-              {hit.listName ? (
-                <>
-                  <strong>{hit.listName}</strong>
-                  {hit.date ? <small>{formatDateTime(hit.date, lang)}</small> : null}
-                </>
-              ) : (
-                <Badge tone="muted">{t('fixed.notInColisflow')}</Badge>
-              )}
-            </div>
-          </div>
-
-          <div className="code-record-row">
-            <span className="code-record-label">{t('fixed.labelEntrepot')}</span>
-            <div className="code-record-value">
-              {info.entry ? (
-                <>
-                  <RegistryStatusBadge
-                    status={info.banned ? 'return-prohibited' : info.entry.status}
-                  />
-                  <small>
-                    {t('registry.firstScan')} : {formatDate(info.entry.firstScanAt, lang)}
-                  </small>
-                  <small>
-                    {t('records.attempts')} : {info.entry.attempts}
-                  </small>
-                </>
-              ) : (
-                <Badge tone="muted">{t('fixed.notInEntrepot')}</Badge>
-              )}
-            </div>
-          </div>
-
-          {info.parcel && info.list ? (
-            <div className="code-record-row">
-              <span className="code-record-label">{t('fixed.labelList')}</span>
-              <div className="code-record-value">
-                <strong>{info.list.name}</strong>
-                <ParcelStatusBadge status={info.parcel.status} />
-                <small>
-                  {t('records.addedAt')} : {formatDate(info.parcel.addedAt, lang)}
-                </small>
-                {info.parcel.returnedAt ? (
-                  <small>
-                    {t('records.returnedAt')} : {formatDate(info.parcel.returnedAt, lang)}
-                  </small>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
-          {info.banned ? (
-            <div className="code-record-row">
-              <span className="code-record-label">{t('fixed.labelBlacklist')}</span>
-              <div className="code-record-value">
-                <Badge tone="danger">{t('search.prohibitedStatus')}</Badge>
-                {info.banned.reason ? <small>{info.banned.reason}</small> : null}
-                {info.banned.addedAt ? (
-                  <small>{formatDate(info.banned.addedAt, lang)}</small>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-    </Modal>
-  )
-}
 
 function FixedListCard({
   name,
