@@ -134,6 +134,55 @@ export function SearchPage() {
   const hasFilters = status !== 'all' || listId !== 'all' || Boolean(from) || Boolean(to)
   const results = ready ? response.hits : []
 
+  // Codes that live with a ColisFlow distributor but in none of this app's
+  // return lists: they would otherwise be invisible from this search.
+  const flowHits = useMemo(() => {
+    if (!ready) return []
+    const needle = trimmed.toLocaleLowerCase()
+    const own = new Set(results.map((hit) => hit.code.toUpperCase()))
+    const seen = new Set<string>()
+    const out: Array<{
+      key: string
+      code: string
+      listName: string
+      date?: string
+      archived: boolean
+      rank: number
+    }> = []
+    for (const item of flow) {
+      const dates = item.dates ?? []
+      item.codes.forEach((code, index) => {
+        const key = code.toUpperCase()
+        if (own.has(key) || seen.has(key)) return
+        if (!code.toLocaleLowerCase().includes(needle)) return
+        seen.add(key)
+        out.push({
+          key: `flow-${item.name}-${key}`,
+          code,
+          listName: item.name,
+          date: dates[index] || item.date,
+          archived: item.archived,
+          rank: code.toLocaleLowerCase().indexOf(needle),
+        })
+      })
+    }
+    out.sort(
+      (a, b) =>
+        a.rank - b.rank ||
+        a.listName.localeCompare(b.listName, lang === 'ar' ? 'ar' : 'fr') ||
+        a.code.localeCompare(b.code),
+    )
+    return out.slice(0, 100)
+  }, [ready, trimmed, results, flow, lang])
+
+  // Multi mode: codes found nowhere here but held by a distributor.
+  const multiFlowFound = useMemo(
+    () =>
+      multiResponse?.items.filter((item) => !item.matches.length && flowOwners.has(item.code))
+        .length ?? 0,
+    [multiResponse, flowOwners],
+  )
+
   const resetFilters = () => {
     setStatus('all')
     setListId('all')
@@ -303,56 +352,106 @@ export function SearchPage() {
               ) : null}
             </div>
 
-            {results.length ? (
-              <div className="result-list">
-                {results.map((hit) => {
-                  const owner = flowOwners.get(hit.code.toUpperCase())
-                  const inEntrepot = registryOf.has(hit.code.toUpperCase())
-                  return (
-                    <div className="result-row" key={hit.key}>
-                      <button
-                        type="button"
-                        className="result-code result-open"
-                        onClick={() => openRecord(hit.code)}
-                        aria-label={hit.code}
-                      >
-                        <span className="result-code-text">
-                          <strong className="mono">
-                            {highlightParts(hit.code, trimmed).map((part, index) =>
-                              part.hit ? (
-                                <mark key={index}>{part.text}</mark>
-                              ) : (
-                                <span key={index}>{part.text}</span>
-                              ),
-                            )}
-                          </strong>
-                          <small>{hit.listName}</small>
-                        </span>
-                        <ChevronRight size={16} className="result-open-chevron" />
-                      </button>
-                      <div className="result-meta">
-                        <Badge tone={STATUS_TONES[hit.status]} dot>
-                          {t(STATUS_KEYS[hit.status])}
-                        </Badge>
-                        {inEntrepot ? <Badge tone="info">{t('fixed.inEntrepot')}</Badge> : null}
-                        {hit.attempts > 1 ? <Badge tone="warning">{hit.attempts}×</Badge> : null}
-                        {hit.otherListName ? <Badge tone="info">{hit.otherListName}</Badge> : null}
-                        {owner ? (
-                          <Badge tone="accent" dot>
-                            {t('search.atDistributor', { name: owner.name })}
-                          </Badge>
-                        ) : null}
-                        <span className="result-date">
-                          {hit.lastAttemptAt ? formatDateTime(hit.lastAttemptAt, lang) : '—'}
-                        </span>
+            {results.length || flowHits.length ? (
+              <>
+                {results.length ? (
+                  <div className="result-list">
+                    {results.map((hit) => {
+                      const owner = flowOwners.get(hit.code.toUpperCase())
+                      const inEntrepot = registryOf.has(hit.code.toUpperCase())
+                      return (
+                        <div className="result-row" key={hit.key}>
+                          <button
+                            type="button"
+                            className="result-code result-open"
+                            onClick={() => openRecord(hit.code)}
+                            aria-label={hit.code}
+                          >
+                            <span className="result-code-text">
+                              <strong className="mono">
+                                {highlightParts(hit.code, trimmed).map((part, index) =>
+                                  part.hit ? (
+                                    <mark key={index}>{part.text}</mark>
+                                  ) : (
+                                    <span key={index}>{part.text}</span>
+                                  ),
+                                )}
+                              </strong>
+                              <small>{hit.listName}</small>
+                            </span>
+                            <ChevronRight size={16} className="result-open-chevron" />
+                          </button>
+                          <div className="result-meta">
+                            <Badge tone={STATUS_TONES[hit.status]} dot>
+                              {t(STATUS_KEYS[hit.status])}
+                            </Badge>
+                            {inEntrepot ? <Badge tone="info">{t('fixed.inEntrepot')}</Badge> : null}
+                            {hit.attempts > 1 ? <Badge tone="warning">{hit.attempts}×</Badge> : null}
+                            {hit.otherListName ? <Badge tone="info">{hit.otherListName}</Badge> : null}
+                            {owner ? (
+                              <Badge tone="accent" dot>
+                                {t('search.atDistributor', { name: owner.name })}
+                              </Badge>
+                            ) : null}
+                            <span className="result-date">
+                              {hit.lastAttemptAt ? formatDateTime(hit.lastAttemptAt, lang) : '—'}
+                            </span>
+                          </div>
+                          <Link to={`/lists/${hit.listId}`} className="icon-btn" title={t('search.openList')}>
+                            <ArrowRight size={17} />
+                          </Link>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : null}
+
+                {flowHits.length ? (
+                  <>
+                    <div className="results-head">
+                      <div>
+                        <h2>{t('search.flowResults')}</h2>
+                        <p>{t('fixed.codes', { count: flowHits.length })}</p>
                       </div>
-                      <Link to={`/lists/${hit.listId}`} className="icon-btn" title={t('search.openList')}>
-                        <ArrowRight size={17} />
-                      </Link>
                     </div>
-                  )
-                })}
-              </div>
+                    <div className="result-list">
+                      {flowHits.map((hit) => (
+                        <div className="result-row" key={hit.key}>
+                          <button
+                            type="button"
+                            className="result-code result-open"
+                            onClick={() => openRecord(hit.code)}
+                            aria-label={hit.code}
+                          >
+                            <span className="result-code-text">
+                              <strong className="mono">
+                                {highlightParts(hit.code, trimmed).map((part, index) =>
+                                  part.hit ? (
+                                    <mark key={index}>{part.text}</mark>
+                                  ) : (
+                                    <span key={index}>{part.text}</span>
+                                  ),
+                                )}
+                              </strong>
+                              <small>{hit.listName}</small>
+                            </span>
+                            <ChevronRight size={16} className="result-open-chevron" />
+                          </button>
+                          <div className="result-meta">
+                            <Badge tone="accent" dot>
+                              {t('search.atDistributor', { name: hit.listName })}
+                            </Badge>
+                            {hit.archived ? <Badge tone="muted">{t('search.flowArchived')}</Badge> : null}
+                            <span className="result-date">
+                              {hit.date ? formatDateTime(hit.date, lang) : '—'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+              </>
             ) : (
               <EmptyState
                 icon={XCircle}
@@ -379,8 +478,10 @@ export function SearchPage() {
             <div>
               <h2>{t('search.multiResults')}</h2>
               <p>
-                {t('search.multiFound', { count: multiResponse.found })} ·{' '}
-                {t('search.multiMissing', { count: multiResponse.missing })}
+                {t('search.multiFound', {
+                  count: multiResponse.found + multiFlowFound,
+                })}{' '}
+                · {t('search.multiMissing', { count: multiResponse.missing - multiFlowFound })}
               </p>
             </div>
             {hasFilters ? (
@@ -409,7 +510,7 @@ export function SearchPage() {
                   </button>
                   <div className="result-meta">
                     {inEntrepot ? <Badge tone="info">{t('fixed.inEntrepot')}</Badge> : null}
-                    {item.matches.length === 0 ? (
+                    {item.matches.length === 0 && !owner ? (
                       <Badge tone="danger" dot>
                         {t('search.multiNotFound')}
                       </Badge>

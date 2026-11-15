@@ -491,6 +491,8 @@ export const messages = {
     'يعمل تلقائياً كل دقيقة طالما التطبيق مفتوح. يجب استخدام التطبيقين في نفس المتصفح.',
   ],
   'search.atDistributor': ['At {name}', 'عند {name}'],
+  'search.flowResults': ['Chez les distributeurs (ColisFlow)', 'عند الموزّعين (ColisFlow)'],
+  'search.flowArchived': ['Archivé', 'مؤرشف'],
   'search.flowOwnerHint': ['Current distributor (ColisFlow)', 'الموزع الحالي (ColisFlow)'],
   'settings.lateDays': ['Délai de retard', 'مدة التأخر'],
   'settings.lateDaysText': [
