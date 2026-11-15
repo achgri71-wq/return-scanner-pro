@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Boxes, ChevronDown, ChevronRight, Inbox, RefreshCw } from 'lucide-react'
+import {
+  Boxes,
+  CalendarDays,
+  ChevronDown,
+  ChevronRight,
+  Inbox,
+  RefreshCw,
+  Truck,
+} from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { ScannedCode } from '../types'
 import { useI18n } from '../i18n'
 import {
   buildReturnIndex,
   loadFlowDistributors,
+  loadFlowPublishedAt,
   syncFlow,
   type FlowDistributor,
   type ReturnStatus,
@@ -16,96 +25,145 @@ import {
   isFixedDistributor,
   normalizeFixedName,
 } from '../lib/fixedLists'
-import { cx, formatDateTime } from '../lib/utils'
-import { Badge, EmptyState, PageHeader, SearchField } from '../components/ui'
+import { cx, formatDateTime, relativeTime } from '../lib/utils'
+import { Badge, EmptyState, PageHeader, SearchField, StatCard } from '../components/ui'
 import { CodeRecordModal, STATUS_KEYS, STATUS_TONES, type CodeHit } from '../components/CodeRecord'
-
-/**
- * Read-only view of the six permanent routeur lists.
- *
- * The page is isolated: it never edits anything. It simply reads the lists
- * ColisFlow publishes through the shared link and shows, for every code, the
- * return status known to this app.
- */
 
 const PER_LIST_CAP = 80
 const RESULT_CAP = 200
 
-function FixedListCard({
-  name,
-  codes,
-  statusOf,
-  query,
-  archived,
-  onOpenCode,
-}: {
+interface RouteurCardData {
+  id: string
   name: string
   codes: string[]
+  archived: boolean
+}
+
+function CodeRows({
+  codes,
+  dates,
+  statusOf,
+  registryOf,
+  listOf,
+  archivedOf,
+  onOpenCode,
+}: {
+  codes: string[]
+  dates: Map<string, string>
   statusOf: Map<string, ReturnStatus>
+  registryOf: Map<string, ScannedCode>
+  listOf?: Map<string, string>
+  archivedOf?: Set<string>
+  onOpenCode: (code: string) => void
+}) {
+  const { t, lang } = useI18n()
+
+  return (
+    <ul className="fixed-codes">
+      {codes.map((code) => {
+        const key = code.toUpperCase()
+        const status = statusOf.get(key)
+        const date = dates.get(key)
+        const inWarehouse = registryOf.has(key)
+        const listName = listOf?.get(key)
+        const archived = archivedOf?.has(key) ?? false
+        return (
+          <li key={code}>
+            <button
+              type="button"
+              className="fixed-code-row"
+              onClick={() => onOpenCode(code)}
+              aria-label={code}
+            >
+              <span className="fixed-code-main">
+                <strong className="mono">{code}</strong>
+                <span className="fixed-code-meta">
+                  {listName ? <span>{listName}</span> : null}
+                  {archived ? <Badge tone="muted">{t('status.archived')}</Badge> : null}
+                  {date ? <><CalendarDays size={12} /> {formatDateTime(date, lang)}</> : '—'}
+                </span>
+              </span>
+              <span className="fixed-code-badges">
+                {inWarehouse ? <Badge tone="info">{t('fixed.inEntrepot')}</Badge> : null}
+                {status ? (
+                  <Badge tone={STATUS_TONES[status]}>{t(STATUS_KEYS[status])}</Badge>
+                ) : (
+                  <Badge tone="muted">{t('fixed.noStatus')}</Badge>
+                )}
+                <ChevronRight size={15} className="fixed-result-chevron" />
+              </span>
+            </button>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function DistributorCard({
+  card,
+  fixed,
+  dates,
+  statusOf,
+  registryOf,
+  query,
+  onOpenCode,
+}: {
+  card: RouteurCardData
+  fixed: boolean
+  dates: Map<string, string>
+  statusOf: Map<string, ReturnStatus>
+  registryOf: Map<string, ScannedCode>
   query: string
-  archived?: boolean
-  onOpenCode?: (code: string) => void
+  onOpenCode: (code: string, listName: string) => void
 }) {
   const { t } = useI18n()
   const [limit, setLimit] = useState(PER_LIST_CAP)
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
 
   useEffect(() => {
     setLimit(PER_LIST_CAP)
-  }, [query, name])
+    setOpen(Boolean(query))
+  }, [query, card.id])
 
-  const visible = codes.slice(0, limit)
+  const visible = card.codes.slice(0, limit)
 
   return (
-    <article className={cx('fixed-card', !open && 'is-collapsed')}>
+    <article className={cx('fixed-card', open && 'is-open', card.archived && 'is-archived')}>
       <button
         type="button"
         className="fixed-card-head"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        aria-label={open ? t('fixed.collapse') : t('fixed.expand')}
       >
-        <span className="fixed-card-icon">
-          <Boxes size={18} />
+        <span className={cx('fixed-card-icon', !fixed && 'is-other')}>
+          {fixed ? <Truck size={17} /> : <Boxes size={17} />}
         </span>
-        <span className="fixed-card-name">{name}</span>
-        {archived ? <Badge tone="muted">{t('status.archived')}</Badge> : null}
-        <Badge tone="accent">{t('fixed.codes', { count: codes.length })}</Badge>
-        <ChevronDown size={18} className="fixed-chevron" />
+        <span className="fixed-card-name">{card.name}</span>
+        {card.archived ? <Badge tone="muted">{t('status.archived')}</Badge> : null}
+        <Badge tone={card.codes.length ? 'accent' : 'muted'}>
+          {t('fixed.codes', { count: card.codes.length })}
+        </Badge>
+        <ChevronDown size={17} className="fixed-chevron" />
       </button>
 
       {open ? (
-        codes.length ? (
+        card.codes.length ? (
           <>
-            <ul className="fixed-codes">
-              {visible.map((code) => {
-                const status = statusOf.get(code.toUpperCase())
-                return (
-                  <li key={code}>
-                    <button
-                      type="button"
-                      className="fixed-code-row"
-                      onClick={() => onOpenCode?.(code)}
-                      aria-label={code}
-                    >
-                      <span className="mono">{code}</span>
-                      {status ? (
-                        <Badge tone={STATUS_TONES[status]}>{t(STATUS_KEYS[status])}</Badge>
-                      ) : (
-                        <Badge tone="muted">{t('fixed.noStatus')}</Badge>
-                      )}
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-            {codes.length > limit ? (
+            <CodeRows
+              codes={visible}
+              dates={dates}
+              statusOf={statusOf}
+              registryOf={registryOf}
+              onOpenCode={(code) => onOpenCode(code, card.name)}
+            />
+            {card.codes.length > limit ? (
               <button
                 type="button"
                 className="btn btn-ghost btn-sm fixed-more"
                 onClick={() => setLimit((value) => value + PER_LIST_CAP)}
               >
-                {t('fixed.loadMore', { count: codes.length - limit })}
+                {t('fixed.loadMore', { count: card.codes.length - limit })}
               </button>
             ) : null}
           </>
@@ -136,41 +194,32 @@ export function FixedListsPage() {
   }, [])
 
   const flow = useMemo<FlowDistributor[]>(() => loadFlowDistributors(), [tick])
-
-  const fixedFlow = useMemo(
-    () => flow.filter((item) => isFixedDistributor(item)),
-    [flow],
-  )
-
+  const publishedAt = useMemo(() => loadFlowPublishedAt(), [tick])
+  const fixedFlow = useMemo(() => flow.filter(isFixedDistributor), [flow])
   const flowByName = useMemo(
     () => new Map(flow.map((item) => [item.name.trim().toLowerCase(), item])),
     [flow],
   )
-
-  const needle = query.trim().toLowerCase()
+  const needle = query.trim().toLocaleLowerCase()
 
   const statusOf = useMemo(() => {
     const listNames = new Map(lists.map((list) => [list.id, list.name]))
     const index = buildReturnIndex({ parcels, registry, blacklist, listNames })
-    const map = new Map<string, ReturnStatus>()
-    for (const entry of index) map.set(entry.code.toUpperCase(), entry.status)
-    return map
+    return new Map(index.map((entry) => [entry.code.toUpperCase(), entry.status]))
   }, [lists, parcels, registry, blacklist])
 
-  // Entry date of every code, as published by ColisFlow (empty when unknown).
   const dateOf = useMemo(() => {
     const map = new Map<string, string>()
     for (const item of flow) {
       const dates = item.dates ?? []
       item.codes.forEach((code, index) => {
         const key = code.toUpperCase()
-        if (!map.has(key)) map.set(key, dates[index] ?? '')
+        if (!map.has(key)) map.set(key, dates[index] || item.date || '')
       })
     }
     return map
   }, [flow])
 
-  // Codes already present in this app's own scan registry (Entrepôt).
   const registryOf = useMemo(() => {
     const map = new Map<string, ScannedCode>()
     for (const entry of registry) {
@@ -180,16 +229,14 @@ export function FixedListsPage() {
     return map
   }, [registry])
 
-  // Flat search results: every matching code with its list, entry date and
-  // status, plus the codes only the Entrepôt knows about.
   const results = useMemo<CodeHit[]>(() => {
     if (!needle) return []
     const hits: CodeHit[] = []
     const seen = new Set<string>()
     for (const item of flow) {
       for (const code of item.codes) {
-        if (!code.toLowerCase().includes(needle)) continue
         const key = code.toUpperCase()
+        if (seen.has(key) || !code.toLocaleLowerCase().includes(needle)) continue
         seen.add(key)
         hits.push({
           code,
@@ -200,37 +247,16 @@ export function FixedListsPage() {
         })
       }
     }
-    // Codes scanned into the Entrepôt that ColisFlow does not publish.
     for (const [key, entry] of registryOf) {
-      if (seen.has(key) || !key.toLowerCase().includes(needle)) continue
-      hits.push({
-        code: entry.code,
-        date: entry.firstScanAt,
-        archived: false,
-        inEntrepot: true,
-      })
+      if (seen.has(key) || !key.toLocaleLowerCase().includes(needle)) continue
+      seen.add(key)
+      hits.push({ code: entry.code, date: entry.firstScanAt, archived: false, inEntrepot: true })
     }
     hits.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
     return hits
   }, [flow, needle, dateOf, registryOf])
 
-  // Opens the record of a code clicked inside a grouped list card.
-  const openFromCard = (code: string, listName: string) => {
-    const item = flowByName.get(listName.toLowerCase())
-    setSelected({
-      code,
-      listName,
-      date: dateOf.get(code.toUpperCase()) || item?.date,
-      archived: item?.archived ?? false,
-      inEntrepot: registryOf.has(code.toUpperCase()),
-    })
-  }
-
-  // The six routeur cards, in the built-in order. A list ColisFlow publishes
-  // under a slightly different (or renamed) spelling still attaches to its
-  // slot, and a routeur ColisFlow flags but that matches no known name gets
-  // its own card at the end — no routeur list is ever dropped.
-  const cards = useMemo(() => {
+  const cards = useMemo<RouteurCardData[]>(() => {
     const matched = new Set<string>()
     const slots = FIXED_LISTS.map((fixed) => {
       const item = fixedFlow.find(
@@ -240,48 +266,63 @@ export function FixedListsPage() {
       return {
         id: fixed.id,
         name: item?.name ?? fixed.name,
-        codes: (item?.codes ?? []).filter(
-          (code) => !needle || code.toLowerCase().includes(needle),
-        ),
+        codes: (item?.codes ?? []).filter((code) => !needle || code.toLocaleLowerCase().includes(needle)),
         archived: item?.archived ?? false,
       }
     })
-    const extras = fixedFlow
+    const extraFixed = fixedFlow
       .filter(
-        (entry) =>
-          !matched.has(entry.name.trim().toLowerCase()) && !fixedSlotFor(entry.name),
+        (item) =>
+          !matched.has(item.name.trim().toLowerCase()) && !fixedSlotFor(item.name),
       )
-      .map((entry) => ({
-        id: entry.name,
-        name: entry.name,
-        codes: entry.codes.filter((code) => !needle || code.toLowerCase().includes(needle)),
-        archived: entry.archived,
-      }))
-    return [...slots, ...extras]
-  }, [fixedFlow, needle])
-
-  // Everything else ColisFlow publishes: every distributor and every code,
-  // not only the permanent routeur lists.
-  const otherCards = useMemo(() => {
-    return flow
-      .filter((item) => !isFixedDistributor(item))
       .map((item) => ({
-        id: `other-${item.name.toLowerCase()}`,
+        id: `fixed-${item.name.toLowerCase()}`,
         name: item.name,
-        codes: item.codes.filter((code) => !needle || code.toLowerCase().includes(needle)),
+        codes: item.codes.filter((code) => !needle || code.toLocaleLowerCase().includes(needle)),
         archived: item.archived,
       }))
-      .filter((card) => card.codes.length > 0)
-  }, [flow, needle])
+    return [...slots, ...extraFixed]
+  }, [fixedFlow, needle])
+
+  const otherCards = useMemo<RouteurCardData[]>(
+    () =>
+      flow
+        .filter((item) => !isFixedDistributor(item))
+        .map((item) => ({
+          id: `other-${item.name.toLowerCase()}`,
+          name: item.name,
+          codes: item.codes.filter((code) => !needle || code.toLocaleLowerCase().includes(needle)),
+          archived: item.archived,
+        }))
+        .filter((card) => card.codes.length > 0),
+    [flow, needle],
+  )
 
   const totalCodes = useMemo(
     () => flow.reduce((sum, item) => sum + item.codes.length, 0),
     [flow],
   )
-
+  const routeurCodes = useMemo(
+    () => fixedFlow.reduce((sum, item) => sum + item.codes.length, 0),
+    [fixedFlow],
+  )
+  const otherCodes = useMemo(
+    () => otherCards.reduce((sum, item) => sum + item.codes.length, 0),
+    [otherCards],
+  )
+  const populatedRouteurs = cards.filter((card) => card.codes.length > 0).length
   const linked = flow.length > 0
-  const visibleCards = needle ? cards.filter((card) => card.codes.length > 0) : cards
-  const hasResults = visibleCards.length > 0 || otherCards.length > 0
+
+  const openRecord = (code: string, listName?: string) => {
+    const item = listName ? flowByName.get(listName.trim().toLowerCase()) : undefined
+    setSelected({
+      code,
+      listName,
+      date: dateOf.get(code.toUpperCase()) || item?.date,
+      archived: item?.archived ?? false,
+      inEntrepot: registryOf.has(code.toUpperCase()),
+    })
+  }
 
   const refresh = async () => {
     if (refreshing) return
@@ -294,6 +335,8 @@ export function FixedListsPage() {
         blacklist: state.blacklist,
         listNames: new Map(state.lists.map((list) => [list.id, list.name])),
       }))
+    } catch {
+      // The cached snapshot remains visible; the next scheduled sync retries.
     } finally {
       setRefreshing(false)
       setTick((value) => value + 1)
@@ -301,7 +344,7 @@ export function FixedListsPage() {
   }
 
   return (
-    <div className="page">
+    <div className="page fixed-page">
       <PageHeader
         title={t('fixed.title')}
         subtitle={linked ? t('fixed.total', { count: totalCodes }) : t('fixed.subtitle')}
@@ -320,103 +363,123 @@ export function FixedListsPage() {
 
       {linked ? (
         <>
-          <div className="toolbar">
+          <div className="fixed-sync-line">
+            <span className="fixed-sync-dot" aria-hidden="true" />
+            {publishedAt
+              ? t('fixed.lastSync', { when: relativeTime(publishedAt, lang) })
+              : t('fixed.syncWaiting')}
+          </div>
+
+          <div className="stats-grid fixed-overview">
+            <StatCard
+              icon={Truck}
+              label={t('fixed.routeurGroups')}
+              value={`${populatedRouteurs}/${cards.length}`}
+              hint={t('fixed.routeurCodes', { count: routeurCodes })}
+              tone="accent"
+            />
+            <StatCard
+              icon={Boxes}
+              label={t('fixed.otherGroups')}
+              value={otherCards.length}
+              hint={t('fixed.otherCodes', { count: otherCodes })}
+              tone="info"
+            />
+          </div>
+
+          <div className="fixed-toolbar">
             <SearchField value={query} onChange={setQuery} placeholder={t('fixed.search')} />
+            {needle ? (
+              <span className="fixed-search-count">
+                {t('fixed.searchCount', { count: results.length })}
+              </span>
+            ) : null}
           </div>
 
           {needle ? (
             results.length ? (
-              <article className="fixed-card">
-                <ul className="fixed-codes">
-                  {results.slice(0, RESULT_CAP).map((hit) => {
-                    const status = statusOf.get(hit.code.toUpperCase())
-                    return (
-                      <li key={`${hit.listName ?? ''}-${hit.code}`}>
-                        <button
-                          type="button"
-                          className={cx('fixed-result', hit.archived && 'is-archived')}
-                          onClick={() => setSelected(hit)}
-                          aria-label={hit.code}
-                        >
-                          <span className="fixed-result-top">
-                            <span className="mono">{hit.code}</span>
-                            <span className="fixed-result-badges">
-                              {status ? (
-                                <Badge tone={STATUS_TONES[status]}>{t(STATUS_KEYS[status])}</Badge>
-                              ) : (
-                                <Badge tone="muted">{t('fixed.noStatus')}</Badge>
-                              )}
-                              <ChevronRight size={15} className="fixed-result-chevron" />
-                            </span>
-                          </span>
-                          <span className="fixed-result-sub">
-                            {hit.listName ? (
-                              <span className="fixed-result-list">{hit.listName}</span>
-                            ) : null}
-                            {hit.inEntrepot ? (
-                              <Badge tone="info">{t('fixed.inEntrepot')}</Badge>
-                            ) : null}
-                            {hit.archived ? <Badge tone="muted">{t('status.archived')}</Badge> : null}
-                            <span>{hit.date ? formatDateTime(hit.date, lang) : '—'}</span>
-                          </span>
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-                {results.length > RESULT_CAP ? (
-                  <p className="fixed-empty">{t('fixed.more', { count: results.length - RESULT_CAP })}</p>
-                ) : null}
-              </article>
+              <section className="fixed-section">
+                <div className="fixed-section-heading">
+                  <div>
+                    <h2>{t('fixed.searchResults')}</h2>
+                    <p>{t('fixed.searchCount', { count: results.length })}</p>
+                  </div>
+                </div>
+                <article className="fixed-card fixed-search-card">
+                  <CodeRows
+                    codes={results.slice(0, RESULT_CAP).map((hit) => hit.code)}
+                    dates={new Map(results.map((hit) => [hit.code.toUpperCase(), hit.date ?? '']))}
+                    listOf={new Map(results.map((hit) => [hit.code.toUpperCase(), hit.listName ?? '']))}
+                    archivedOf={new Set(results.filter((hit) => hit.archived).map((hit) => hit.code.toUpperCase()))}
+                    statusOf={statusOf}
+                    registryOf={registryOf}
+                    onOpenCode={(code) => {
+                      const hit = results.find((result) => result.code === code)
+                      if (hit) setSelected(hit)
+                    }}
+                  />
+                  {results.length > RESULT_CAP ? (
+                    <p className="fixed-empty">
+                      {t('fixed.more', { count: results.length - RESULT_CAP })}
+                    </p>
+                  ) : null}
+                </article>
+              </section>
             ) : (
-              <EmptyState
-                icon={Inbox}
-                title={t('fixed.noMatch')}
-                text={t('fixed.noMatchText')}
-              />
+              <EmptyState icon={Inbox} title={t('fixed.noMatch')} text={t('fixed.noMatchText')} />
             )
-          ) : hasResults ? (
+          ) : (
             <>
-              {visibleCards.length ? (
+              <section className="fixed-section">
+                <div className="fixed-section-heading">
+                  <div>
+                    <h2>{t('fixed.routeurSection')}</h2>
+                    <p>{t('fixed.routeurSectionHint')}</p>
+                  </div>
+                  <Badge tone="accent">{t('fixed.listCount', { count: cards.length })}</Badge>
+                </div>
                 <div className="fixed-grid">
-                  {visibleCards.map((card) => (
-                    <FixedListCard
+                  {cards.map((card) => (
+                    <DistributorCard
                       key={card.id}
-                      name={card.name}
-                      codes={card.codes}
+                      card={card}
+                      fixed
+                      dates={dateOf}
                       statusOf={statusOf}
+                      registryOf={registryOf}
                       query={query}
-                      onOpenCode={(code) => openFromCard(code, card.name)}
+                      onOpenCode={openRecord}
                     />
                   ))}
                 </div>
-              ) : null}
+              </section>
 
               {otherCards.length ? (
-                <>
-                  <h2 className="fixed-section-title">{t('fixed.others')}</h2>
+                <section className="fixed-section">
+                  <div className="fixed-section-heading">
+                    <div>
+                      <h2>{t('fixed.otherSection')}</h2>
+                      <p>{t('fixed.otherSectionHint', { count: otherCards.length })}</p>
+                    </div>
+                    <Badge tone="info">{t('fixed.codes', { count: otherCodes })}</Badge>
+                  </div>
                   <div className="fixed-grid">
                     {otherCards.map((card) => (
-                      <FixedListCard
+                      <DistributorCard
                         key={card.id}
-                        name={card.name}
-                        codes={card.codes}
-                        archived={card.archived}
+                        card={card}
+                        fixed={false}
+                        dates={dateOf}
                         statusOf={statusOf}
+                        registryOf={registryOf}
                         query={query}
-                        onOpenCode={(code) => openFromCard(code, card.name)}
+                        onOpenCode={openRecord}
                       />
                     ))}
                   </div>
-                </>
+                </section>
               ) : null}
             </>
-          ) : (
-            <EmptyState
-              icon={Inbox}
-              title={t('fixed.noMatch')}
-              text={t('fixed.noMatchText')}
-            />
           )}
         </>
       ) : (
@@ -424,6 +487,17 @@ export function FixedListsPage() {
           icon={Boxes}
           title={t('fixed.notLinked')}
           text={t('fixed.notLinkedText')}
+          action={
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => void refresh()}
+              disabled={refreshing}
+            >
+              <RefreshCw size={16} className={cx(refreshing && 'spin')} />
+              {t('fixed.refresh')}
+            </button>
+          }
         />
       )}
 
