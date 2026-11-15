@@ -5524,3 +5524,232 @@ html[dir='rtl'] .audit-row {
     gap: 6px;
   }
 }
+
+/* ---------- ColisFlow cloud mirror ---------- */
+
+.colisflow-page {
+  gap: 12px;
+}
+
+.colisflow-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.colisflow-sync-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.colisflow-sync-line > span:nth-child(2) {
+  flex: 1;
+}
+
+.colisflow-sync-line .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.colisflow-sync-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 3px var(--success-soft);
+}
+
+.colisflow-sync-dot.is-offline {
+  background: var(--warning);
+  box-shadow: 0 0 0 3px var(--warning-soft);
+}
+
+.colisflow-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.colisflow-toolbar > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.colisflow-result-count {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.colisflow-distributor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 10px;
+}
+
+.colisflow-distributor {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.colisflow-distributor-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 62px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.colisflow-distributor-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  color: var(--info);
+  background: var(--info-soft);
+}
+
+.colisflow-distributor-icon.is-fixed {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.colisflow-distributor-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.colisflow-distributor-title h2 {
+  margin: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.colisflow-distributor-title small {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+}
+
+.colisflow-code-list {
+  max-height: 52vh;
+  overflow-y: auto;
+}
+
+.colisflow-code-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 50px;
+  padding: 7px 12px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.colisflow-code-row:hover {
+  background: var(--surface-2);
+}
+
+.colisflow-code-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+
+.colisflow-code-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.colisflow-code-main small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.colisflow-code-badges {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  flex: none;
+}
+
+.colisflow-load-more {
+  display: flex;
+  margin: 8px auto;
+}
+
+.colisflow-no-codes {
+  margin: 0;
+  padding: 14px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .colisflow-distributor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .colisflow-distributor-head {
+    min-height: 56px;
+    padding: 8px 10px;
+  }
+
+  .colisflow-code-row {
+    padding: 6px 10px;
+  }
+
+  .colisflow-code-main .mono {
+    font-size: 12px;
+  }
+
+  .colisflow-code-badges .badge {
+    padding: 3px 6px;
+    font-size: 9px;
+  }
+
+  .colisflow-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .colisflow-result-count {
+    align-self: flex-end;
+  }
+}
