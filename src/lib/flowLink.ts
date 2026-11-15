@@ -14,6 +14,7 @@ import type { ScannedCode } from '../types'
 const LINK_DB = 'colislink'
 const SNAPSHOT_KEY = 'rsp.flow.snapshot'
 const DISTRIBUTORS_KEY = 'rsp.flow.distributors'
+const PUBLISHED_KEY = 'rsp.flow.publishedAt'
 
 export type ReturnStatus = 'returned' | 'pending' | 'not-required' | 'prohibited'
 
@@ -184,10 +185,15 @@ function codesOf(value: unknown): string[] {
   return []
 }
 
-/** Saves the distributor lists for the search page and notifies listeners. */
-export function storeFlowDistributors(list: FlowDistributor[]): void {
+/**
+ * Saves the distributor lists for the search page and notifies listeners.
+ * `at` is the moment ColisFlow published the snapshot (kept so the UI can tell
+ * whether the link ever received anything).
+ */
+export function storeFlowDistributors(list: FlowDistributor[], at?: string): void {
   try {
     localStorage.setItem(DISTRIBUTORS_KEY, JSON.stringify(list))
+    if (at) localStorage.setItem(PUBLISHED_KEY, at)
   } catch {
     /* storage may be unavailable */
   }
@@ -202,6 +208,19 @@ export function loadFlowDistributors(): FlowDistributor[] {
     return parsed as FlowDistributor[]
   } catch {
     return []
+  }
+}
+
+/**
+ * Moment ColisFlow last published into the shared link, or null when it never
+ * did on this browser (which is why the distributor lists stay empty).
+ */
+export function loadFlowPublishedAt(): string | null {
+  try {
+    const value = localStorage.getItem(PUBLISHED_KEY)
+    return value && !Number.isNaN(Date.parse(value)) ? value : null
+  } catch {
+    return null
   }
 }
 
@@ -314,6 +333,6 @@ export async function syncFlow(
   if (changed > 0) await putSlot('rsp', { returns: index })
   saveSnapshot(next)
   const flow = await getSlot('flow')
-  storeFlowDistributors(normalizeFlowDistributors(flow?.data ?? []))
+  storeFlowDistributors(normalizeFlowDistributors(flow?.data ?? []), flow?.at)
   return { pushed: changed }
 }

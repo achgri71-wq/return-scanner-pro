@@ -540,6 +540,15 @@ export const messages = {
     'مرحباً {name}، هذه طرودك المتأخرة ({count}):',
   ],
   'late.waFooter': ['Merci de les retourner.', 'المرجو إرجاعها.'],
+  'late.linkTitle': ['ColisFlow non lié', 'ColisFlow غير مرتبط'],
+  'late.linkNever': [
+    'ColisFlow n’a jamais publié de listes sur ce navigateur. Ouvrez ColisFlow ici (même navigateur), puis touchez Actualiser.',
+    'لم ينشر ColisFlow أي قوائم في هذا المتصفح. افتح ColisFlow هنا (نفس المتصفح) ثم اضغط «تحديث».',
+  ],
+  'late.linkSeen': [
+    'Dernière publication de ColisFlow : {when}.',
+    'آخر نشر من ColisFlow: {when}.',
+  ],
 
   // @@END@@
 } as const satisfies Record<string, readonly [string, string]>

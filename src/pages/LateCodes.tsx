@@ -5,12 +5,13 @@ import { useI18n } from '../i18n'
 import {
   buildReturnIndex,
   loadFlowDistributors,
+  loadFlowPublishedAt,
   syncFlow,
   type FlowDistributor,
   type ReturnStatus,
 } from '../lib/flowLink'
 import { isFixedListName } from '../lib/fixedLists'
-import { cx, formatDate } from '../lib/utils'
+import { cx, formatDate, relativeTime } from '../lib/utils'
 import { Badge, EmptyState, PageHeader } from '../components/ui'
 import { CodeRecordModal, type CodeHit } from '../components/CodeRecord'
 
@@ -68,6 +69,8 @@ export function LateCodesPage() {
   }, [])
 
   const flow = useMemo<FlowDistributor[]>(() => loadFlowDistributors(), [tick])
+  // When ColisFlow last published on this browser; null means it never did.
+  const publishedAt = useMemo(() => loadFlowPublishedAt(), [tick])
 
   const statusOf = useMemo(() => {
     const listNames = new Map(lists.map((list) => [list.id, list.name]))
@@ -173,7 +176,15 @@ export function LateCodesPage() {
       />
 
       {!flow.length ? (
-        <EmptyState icon={Boxes} title={t('fixed.notLinked')} text={t('fixed.notLinkedText')} />
+        <EmptyState
+          icon={Boxes}
+          title={t('late.linkTitle')}
+          text={
+            publishedAt
+              ? t('late.linkSeen', { when: relativeTime(publishedAt, lang) })
+              : t('late.linkNever')
+          }
+        />
       ) : !groups.length ? (
         <EmptyState icon={Inbox} title={t('late.empty')} text={t('late.emptyText')} />
       ) : (

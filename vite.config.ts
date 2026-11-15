@@ -24,7 +24,11 @@ export default defineConfig(({ mode }) => ({
     react(),
     spa404Fallback(),
     VitePWA({
-      registerType: 'auto',
+      // 'autoUpdate' (not 'auto'): registers the service worker with the
+      // workbox auto-update helper, so a new deployment reloads the app by
+      // itself. The old invalid value silently fell back to 'prompt', which
+      // left installed phones stuck on a stale build.
+      registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Return Scanner Pro — Retours colis',
@@ -50,6 +54,9 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
+        // Take control of open pages as soon as a new build is installed.
+        skipWaiting: true,
+        clientsClaim: true,
       },
       devOptions: { enabled: false },
     }),
