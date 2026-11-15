@@ -5404,6 +5404,27 @@ html[dir='rtl'] .audit-row {
   gap: 12px;
 }
 
+.late-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.late-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.late-merge-hint {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
 .late-demand-hint {
   margin: -7px 2px 0;
   color: var(--muted);
@@ -5429,6 +5450,20 @@ html[dir='rtl'] .audit-row {
   gap: 10px;
 }
 
+.late-group-check {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+.late-group-check input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .late-card-icon {
   display: inline-flex;
   align-items: center;
@@ -5443,13 +5478,41 @@ html[dir='rtl'] .audit-row {
 }
 
 .late-card-name {
-  flex: 1;
   min-width: 0;
   font-size: 15px;
   font-weight: 650;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.late-card-toggle {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.late-card-chevron {
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.18s ease;
+}
+
+.late-card.is-collapsed .late-card-chevron {
+  transform: rotate(-90deg);
+}
+
+.late-toolbar-actions .is-rotated {
+  transform: rotate(180deg);
 }
 
 .late-wa {
@@ -5468,15 +5531,26 @@ html[dir='rtl'] .audit-row {
   border-radius: var(--radius);
 }
 
+.late-code-item {
+  display: flex;
+  align-items: stretch;
+  border-top: 1px solid var(--border);
+}
+
+.late-code-item:first-child {
+  border-top: none;
+}
+
 .late-code-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 8px 12px;
   border: none;
-  border-top: 1px solid var(--border);
+  border-top: none;
   background: none;
   color: inherit;
   font: inherit;
@@ -5508,6 +5582,22 @@ html[dir='rtl'] .audit-row {
   color: var(--muted);
 }
 
+.late-copy-group,
+.late-copy-code {
+  flex: none;
+  color: var(--muted);
+}
+
+.late-copy-code {
+  align-self: center;
+  margin-inline-end: 6px;
+}
+
+.late-load-more {
+  display: flex;
+  margin: 8px auto;
+}
+
 @media (max-width: 720px) {
   .late-grid {
     grid-template-columns: 1fr;
@@ -5515,6 +5605,30 @@ html[dir='rtl'] .audit-row {
 
   .late-card {
     padding: 12px;
+  }
+
+  .late-card-head {
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .late-card-toggle {
+    min-width: 35%;
+  }
+
+  .late-card-name {
+    font-size: 13px;
+  }
+
+  .late-wa {
+    margin-inline-start: auto;
+  }
+
+  .late-toolbar-actions .btn {
+    justify-content: center;
+    flex: 1 1 calc(50% - 7px);
+    padding-inline: 7px;
+    font-size: 10.5px;
   }
 
   .late-code-row {

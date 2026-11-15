@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlarmClock, Boxes, Inbox, MessageCircle, RefreshCw } from 'lucide-react'
+import {
+  AlarmClock,
+  Boxes,
+  CheckSquare,
+  ChevronDown,
+  Copy,
+  Inbox,
+  ListChecks,
+  MessageCircle,
+  RefreshCw,
+  Square,
+} from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useI18n } from '../i18n'
 import {
@@ -13,8 +24,9 @@ import {
 import { isFixedDistributor } from '../lib/fixedLists'
 import { loadRequestedCodes } from '../lib/colisDemande'
 import { cx, formatDate, relativeTime } from '../lib/utils'
-import { Badge, EmptyState, PageHeader } from '../components/ui'
+import { Badge, EmptyState, PageHeader, SearchField } from '../components/ui'
 import { CodeRecordModal, type CodeHit } from '../components/CodeRecord'
+import { toast } from '../components/Toast'
 
 /**
  * Late-code notices.
@@ -30,6 +42,7 @@ import { CodeRecordModal, type CodeHit } from '../components/CodeRecord'
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const CODE_PAGE_SIZE = 100
 /** Local numbers (06…) are turned into international form for wa.me. */
 const COUNTRY_CODE = '212'
 
@@ -40,9 +53,134 @@ interface LateCode {
 }
 
 interface LateGroup {
+  id: string
   name: string
   phone?: string
   codes: LateCode[]
+}
+
+async function copyText(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text)
+    return
+  } catch {
+    const input = document.createElement('textarea')
+    input.value = text
+    input.style.position = 'fixed'
+    input.style.opacity = '0'
+    document.body.appendChild(input)
+    input.select()
+    const copied = document.execCommand('copy')
+    input.remove()
+    if (!copied) throw new Error('Clipboard unavailable')
+  }
+}
+
+function LateGroupCard({
+  group,
+  checked,
+  expanded,
+  onSelect,
+  onToggle,
+  onOpenCode,
+  onCopy,
+}: {
+  group: LateGroup
+  checked: boolean
+  expanded: boolean
+  onSelect: () => void
+  onToggle: () => void
+  onOpenCode: (group: LateGroup, code: LateCode) => void
+  onCopy: (codes: LateCode[]) => void
+}) {
+  const { t, lang } = useI18n()
+  const [limit, setLimit] = useState(CODE_PAGE_SIZE)
+
+  useEffect(() => setLimit(CODE_PAGE_SIZE), [group.id, group.codes.length])
+
+  const header = t('late.waHeader', { name: group.name, count: group.codes.length })
+  const lines = group.codes.map((item) => `• ${item.code} — ${formatDate(item.at, lang)}`)
+  const message = [header, '', ...lines, '', t('late.waFooter')].join('\n')
+
+  return (
+    <article className={cx('late-card', !expanded && 'is-collapsed')}>
+      <header className="late-card-head">
+        <label className="late-group-check" title={t('late.selectGroup', { name: group.name })}>
+          <input type="checkbox" checked={checked} onChange={onSelect} />
+        </label>
+        <span className="late-card-icon"><AlarmClock size={18} /></span>
+        <button
+          type="button"
+          className="late-card-toggle"
+          onClick={onToggle}
+          aria-expanded={expanded}
+        >
+          <span className="late-card-name">{group.name}</span>
+          <ChevronDown size={17} className="late-card-chevron" />
+        </button>
+        <Badge tone="danger">{t('fixed.codes', { count: group.codes.length })}</Badge>
+        <button
+          type="button"
+          className="icon-btn late-copy-group"
+          onClick={() => onCopy(group.codes)}
+          title={t('late.copyList')}
+          aria-label={t('late.copyList')}
+        >
+          <Copy size={15} />
+        </button>
+        <a
+          className="btn btn-primary btn-sm late-wa"
+          href={whatsappLink(group.phone, message)}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <MessageCircle size={16} />
+          {t('late.whatsapp')}
+        </a>
+      </header>
+
+      {expanded ? (
+        <>
+          <ul className="late-codes">
+            {group.codes.slice(0, limit).map((item) => (
+              <li className="late-code-item" key={item.code}>
+                <button
+                  type="button"
+                  className="late-code-row"
+                  onClick={() => onOpenCode(group, item)}
+                  aria-label={item.code}
+                >
+                  <span className="mono">{item.code}</span>
+                  <span className="late-code-meta">
+                    <span>{formatDate(item.at, lang)}</span>
+                    <Badge tone="danger">{t('late.days', { count: item.days })}</Badge>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn late-copy-code"
+                  onClick={() => onCopy([item])}
+                  title={t('late.copyCode')}
+                  aria-label={t('late.copyCode')}
+                >
+                  <Copy size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+          {group.codes.length > limit ? (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm late-load-more"
+              onClick={() => setLimit((current) => current + CODE_PAGE_SIZE)}
+            >
+              {t('late.loadMore', { count: group.codes.length - limit })}
+            </button>
+          ) : null}
+        </>
+      ) : null}
+    </article>
+  )
 }
 
 function whatsappLink(phone: string | undefined, text: string): string {
@@ -64,6 +202,9 @@ export function LateCodesPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [selected, setSelected] = useState<CodeHit | null>(null)
   const [requestedCodes, setRequestedCodes] = useState(() => loadRequestedCodes())
+  const [query, setQuery] = useState('')
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(() => new Set())
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
     const handler = () => setTick((value) => value + 1)
@@ -137,7 +278,12 @@ export function LateCodesPage() {
       })
       if (!late.length) continue
       late.sort((a, b) => a.at.localeCompare(b.at))
-      result.push({ name: item.name, phone: item.phone, codes: late })
+      result.push({
+        id: item.name.trim().toLocaleLowerCase(),
+        name: item.name,
+        phone: item.phone,
+        codes: late,
+      })
     }
 
     // Order the distributors by the first letters of their name.
@@ -150,10 +296,70 @@ export function LateCodesPage() {
     [groups],
   )
 
-  const messageFor = (group: LateGroup): string => {
-    const header = t('late.waHeader', { name: group.name, count: group.codes.length })
-    const lines = group.codes.map((item) => `• ${item.code} — ${formatDate(item.at, lang)}`)
-    return [header, '', ...lines, '', t('late.waFooter')].join('\n')
+  const needle = query.trim().toLocaleLowerCase()
+  const visibleGroups = useMemo(() => {
+    if (!needle) return groups
+    return groups.flatMap((group) => {
+      const nameMatches = group.name.toLocaleLowerCase().includes(needle)
+      const codes = nameMatches
+        ? group.codes
+        : group.codes.filter((item) => item.code.toLocaleLowerCase().includes(needle))
+      return nameMatches || codes.length ? [{ ...group, codes }] : []
+    })
+  }, [groups, needle])
+  const selectedVisible = visibleGroups.filter((group) => selectedGroups.has(group.id))
+  const allVisibleSelected =
+    visibleGroups.length > 0 && selectedVisible.length === visibleGroups.length
+  const allVisibleExpanded =
+    visibleGroups.length > 0 && visibleGroups.every((group) => expandedGroups.has(group.id))
+
+  const toggleSelectedGroups = () => {
+    setSelectedGroups((current) => {
+      const next = new Set(current)
+      if (allVisibleSelected) visibleGroups.forEach((group) => next.delete(group.id))
+      else visibleGroups.forEach((group) => next.add(group.id))
+      return next
+    })
+  }
+
+  const toggleExpandedGroups = () => {
+    setExpandedGroups((current) => {
+      const next = new Set(current)
+      if (allVisibleExpanded) visibleGroups.forEach((group) => next.delete(group.id))
+      else visibleGroups.forEach((group) => next.add(group.id))
+      return next
+    })
+  }
+
+  const copyCodes = async (items: LateCode[]) => {
+    if (!items.length) return
+    try {
+      await copyText(items.map((item) => item.code).join('\n'))
+      toast(t('late.copied', { count: items.length }), 'success')
+    } catch {
+      toast(t('late.copyFailed'), 'error')
+    }
+  }
+
+  const mergeSelectedForWhatsApp = () => {
+    if (!selectedVisible.length) return
+    const byCode = new Map<string, { code: LateCode; groupName: string }>()
+    for (const group of selectedVisible) {
+      for (const code of group.codes) {
+        const key = code.code.toUpperCase()
+        if (!byCode.has(key)) byCode.set(key, { code, groupName: group.name })
+      }
+    }
+    const entries = Array.from(byCode.values())
+    const header = t('late.waMergedHeader', {
+      count: entries.length,
+      groups: selectedVisible.length,
+    })
+    const lines = entries.map(
+      ({ code, groupName }) => `• ${code.code} — ${formatDate(code.at, lang)} (${groupName})`,
+    )
+    const message = [header, '', ...lines, '', t('late.waFooter')].join('\n')
+    window.open(whatsappLink(undefined, message), '_blank', 'noopener,noreferrer')
   }
 
   const refresh = async () => {
@@ -209,55 +415,89 @@ export function LateCodesPage() {
       ) : !groups.length ? (
         <EmptyState icon={Inbox} title={t('late.empty')} text={t('late.emptyText')} />
       ) : (
-        <div className="late-grid">
-          {groups.map((group) => (
-            <article key={group.name} className="late-card">
-              <header className="late-card-head">
-                <span className="late-card-icon">
-                  <AlarmClock size={18} />
-                </span>
-                <span className="late-card-name">{group.name}</span>
-                <Badge tone="danger">{t('fixed.codes', { count: group.codes.length })}</Badge>
-                <a
-                  className="btn btn-primary btn-sm late-wa"
-                  href={whatsappLink(group.phone, messageFor(group))}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <MessageCircle size={16} />
-                  {t('late.whatsapp')}
-                </a>
-              </header>
+        <>
+          <div className="late-toolbar">
+            <SearchField value={query} onChange={setQuery} placeholder={t('late.search')} />
+            <div className="late-toolbar-actions">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={toggleExpandedGroups}
+                disabled={!visibleGroups.length}
+              >
+                <ChevronDown size={15} className={cx(allVisibleExpanded && 'is-rotated')} />
+                {allVisibleExpanded ? t('late.collapseAll') : t('late.expandAll')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={toggleSelectedGroups}
+                disabled={!visibleGroups.length}
+              >
+                {allVisibleSelected ? <Square size={15} /> : <CheckSquare size={15} />}
+                {allVisibleSelected ? t('late.deselectAll') : t('late.selectAll')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => void copyCodes(selectedVisible.flatMap((group) => group.codes))}
+                disabled={!selectedVisible.length}
+              >
+                <Copy size={15} /> {t('late.copySelected')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={mergeSelectedForWhatsApp}
+                disabled={!selectedVisible.length}
+              >
+                <ListChecks size={15} /> {t('late.mergeSelected')}
+              </button>
+            </div>
+            <small className="late-merge-hint">{t('late.mergeHint')}</small>
+          </div>
 
-              <ul className="late-codes">
-                {group.codes.map((item) => (
-                  <li key={item.code}>
-                    <button
-                      type="button"
-                      className="late-code-row"
-                      onClick={() =>
-                        setSelected({
-                          code: item.code,
-                          listName: group.name,
-                          date: item.at,
-                          archived: false,
-                          inEntrepot: false,
-                        })
-                      }
-                      aria-label={item.code}
-                    >
-                      <span className="mono">{item.code}</span>
-                      <span className="late-code-meta">
-                        <span>{formatDate(item.at, lang)}</span>
-                        <Badge tone="danger">{t('late.days', { count: item.days })}</Badge>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
-        </div>
+          {visibleGroups.length ? (
+            <div className="late-grid">
+              {visibleGroups.map((group) => (
+                <LateGroupCard
+                  key={group.id}
+                  group={group}
+                  checked={selectedGroups.has(group.id)}
+                  expanded={expandedGroups.has(group.id)}
+                  onSelect={() => {
+                    setSelectedGroups((current) => {
+                      const next = new Set(current)
+                      if (next.has(group.id)) next.delete(group.id)
+                      else next.add(group.id)
+                      return next
+                    })
+                  }}
+                  onToggle={() => {
+                    setExpandedGroups((current) => {
+                      const next = new Set(current)
+                      if (next.has(group.id)) next.delete(group.id)
+                      else next.add(group.id)
+                      return next
+                    })
+                  }}
+                  onOpenCode={(target, code) =>
+                    setSelected({
+                      code: code.code,
+                      listName: target.name,
+                      date: code.at,
+                      archived: false,
+                      inEntrepot: false,
+                    })
+                  }
+                  onCopy={(items) => void copyCodes(items)}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyState icon={Inbox} title={t('late.searchEmpty')} text={t('late.searchEmptyText')} />
+          )}
+        </>
       )}
 
       <CodeRecordModal hit={selected} statusOf={statusOf} onClose={() => setSelected(null)} />
