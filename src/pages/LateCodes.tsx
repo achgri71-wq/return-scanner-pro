@@ -8,6 +8,7 @@ import {
   Inbox,
   ListChecks,
   MessageCircle,
+  Pencil,
   RefreshCw,
   Square,
   Trash2,
@@ -25,8 +26,9 @@ import {
 } from '../lib/flowLink'
 import { isFixedDistributor } from '../lib/fixedLists'
 import { loadRequestedCodes, saveRequestedCodes } from '../lib/colisDemande'
+import { createLateMerge, loadLateMerges, saveLateMerges, type LateMerge } from '../lib/lateMerges'
 import { cx, formatDate, relativeTime } from '../lib/utils'
-import { Badge, ConfirmDialog, EmptyState, PageHeader, SearchField } from '../components/ui'
+import { Badge, ConfirmDialog, EmptyState, Modal, PageHeader, SearchField } from '../components/ui'
 import { CodeRecordModal, type CodeHit } from '../components/CodeRecord'
 import { toast } from '../components/Toast'
 
@@ -45,7 +47,6 @@ import { toast } from '../components/Toast'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const CODE_PAGE_SIZE = 100
-const MERGED_GROUP_ID = 'late-merged-selection'
 /** Local numbers (06…) are turned into international form for wa.me. */
 const COUNTRY_CODE = '212'
 
@@ -92,6 +93,7 @@ function LateGroupCard({
   onDeleteGroup,
   virtual = false,
   onRemoveVirtual,
+  onRenameVirtual,
 }: {
   group: LateGroup
   checked: boolean
@@ -104,6 +106,7 @@ function LateGroupCard({
   onDeleteGroup: (group: LateGroup) => void
   virtual?: boolean
   onRemoveVirtual?: () => void
+  onRenameVirtual?: () => void
 }) {
   const { t, lang } = useI18n()
   const [limit, setLimit] = useState(CODE_PAGE_SIZE)
@@ -135,7 +138,7 @@ function LateGroupCard({
           <ChevronDown size={17} className="late-card-chevron" />
         </button>
         <Badge tone={virtual ? 'accent' : 'danger'}>
-          {virtual ? t('late.mergedBadge') : t('fixed.codes', { count: group.codes.length })}
+          {virtual ? t('late.mergedBadge', { count: group.codes.length }) : t('fixed.codes', { count: group.codes.length })}
         </Badge>
         <button
           type="button"
@@ -147,15 +150,26 @@ function LateGroupCard({
           <Copy size={15} />
         </button>
         {virtual ? (
-          <button
-            type="button"
-            className="icon-btn late-remove-merged"
-            onClick={onRemoveVirtual}
-            title={t('late.closeMerged')}
-            aria-label={t('late.closeMerged')}
-          >
-            <X size={16} />
-          </button>
+          <>
+            <button
+              type="button"
+              className="icon-btn late-rename-merged"
+              onClick={onRenameVirtual}
+              title={t('late.renameMerge')}
+              aria-label={t('late.renameMerge')}
+            >
+              <Pencil size={15} />
+            </button>
+            <button
+              type="button"
+              className="icon-btn late-remove-merged"
+              onClick={onRemoveVirtual}
+              title={t('late.closeMerged')}
+              aria-label={t('late.closeMerged')}
+            >
+              <X size={16} />
+            </button>
+          </>
         ) : (
           <button
             type="button"
@@ -172,6 +186,10 @@ function LateGroupCard({
           href={whatsappLink(group.phone, message)}
           target="_blank"
           rel="noreferrer"
+          aria-disabled={!group.codes.length}
+          onClick={(event) => {
+            if (!group.codes.length) event.preventDefault()
+          }}
         >
           <MessageCircle size={16} />
           {t('late.whatsapp')}
@@ -179,7 +197,8 @@ function LateGroupCard({
       </header>
 
       {expanded ? (
-        <>
+        group.codes.length ? (
+          <>
           <ul className="late-codes">
             {group.codes.slice(0, limit).map((item) => (
               <li className="late-code-item" key={item.code}>
@@ -228,7 +247,10 @@ function LateGroupCard({
               {t('late.loadMore', { count: group.codes.length - limit })}
             </button>
           ) : null}
-        </>
+          </>
+        ) : (
+          <p className="late-merged-empty">{t('late.mergedNoLateCodes')}</p>
+        )
       ) : null}
     </article>
   )
@@ -256,7 +278,13 @@ export function LateCodesPage() {
   const [query, setQuery] = useState('')
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(() => new Set())
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set())
-  const [mergedList, setMergedList] = useState<{ sourceNames: string[]; codes: LateCode[] } | null>(null)
+  const [savedMerges, setSavedMerges] = useState<LateMerge[]>(() => loadLateMerges())
+  const [mergeDialog, setMergeDialog] = useState<{
+    id?: string
+    name: string
+    sourceNames: string[]
+  } | null>(null)
+  const [removeMergeId, setRemoveMergeId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<
     | { type: 'code'; group: LateGroup; code: LateCode }
     | { type: 'group'; group: LateGroup }
@@ -266,13 +294,18 @@ export function LateCodesPage() {
   useEffect(() => {
     const handler = () => setTick((value) => value + 1)
     const reloadRequested = () => setRequestedCodes(loadRequestedCodes())
+    const reloadMerges = () => setSavedMerges(loadLateMerges())
     window.addEventListener('rsp.flow', handler)
     window.addEventListener('rsp.colis-demande', reloadRequested)
+    window.addEventListener('rsp.late-merges', reloadMerges)
     window.addEventListener('storage', reloadRequested)
+    window.addEventListener('storage', reloadMerges)
     return () => {
       window.removeEventListener('rsp.flow', handler)
       window.removeEventListener('rsp.colis-demande', reloadRequested)
+      window.removeEventListener('rsp.late-merges', reloadMerges)
       window.removeEventListener('storage', reloadRequested)
+      window.removeEventListener('storage', reloadMerges)
     }
   }, [])
 
@@ -364,17 +397,28 @@ export function LateCodesPage() {
       return nameMatches || codes.length ? [{ ...group, codes }] : []
     })
   }, [groups, needle])
-  const mergedGroup = useMemo<LateGroup | null>(() => {
-    if (!mergedList) return null
-    const name = t('late.mergedTitle', { count: mergedList.sourceNames.length })
-    const nameMatches = name.toLocaleLowerCase().includes(needle)
-    const codes = needle && !nameMatches
-      ? mergedList.codes.filter((item) => item.code.toLocaleLowerCase().includes(needle))
-      : mergedList.codes
-    if (needle && !nameMatches && !codes.length) return null
-    return { id: MERGED_GROUP_ID, name, codes }
-  }, [mergedList, needle, t])
-  const pageGroups = mergedGroup ? [mergedGroup, ...visibleGroups] : visibleGroups
+  const mergedGroups = useMemo<LateGroup[]>(() => savedMerges.map((merge) => {
+    const sources = new Set(merge.sourceNames.map((name) => name.trim().toLocaleLowerCase()))
+    const byCode = new Map<string, LateCode>()
+    for (const group of groups) {
+      if (!sources.has(group.id)) continue
+      for (const code of group.codes) {
+        const key = code.code.toUpperCase()
+        if (!byCode.has(key)) byCode.set(key, { ...code, sourceName: group.name })
+      }
+    }
+    return { id: merge.id, name: merge.name, codes: Array.from(byCode.values()) }
+  }), [groups, savedMerges])
+  const visibleMergedGroups = useMemo(() => mergedGroups.flatMap((group) => {
+    if (!needle) return [group]
+    const nameMatches = group.name.toLocaleLowerCase().includes(needle)
+    const codes = nameMatches
+      ? group.codes
+      : group.codes.filter((item) => item.code.toLocaleLowerCase().includes(needle))
+    return nameMatches || codes.length ? [{ ...group, codes }] : []
+  }), [mergedGroups, needle])
+  const mergedIds = useMemo(() => new Set(savedMerges.map((merge) => merge.id)), [savedMerges])
+  const pageGroups = [...visibleMergedGroups, ...visibleGroups]
   const selectedVisible = visibleGroups.filter((group) => selectedGroups.has(group.id))
   const allVisibleSelected =
     visibleGroups.length > 0 && selectedVisible.length === visibleGroups.length
@@ -411,21 +455,61 @@ export function LateCodesPage() {
 
   const mergeSelectedLists = () => {
     if (selectedVisible.length < 2) return
-    const byCode = new Map<string, { code: LateCode; groupName: string }>()
-    for (const group of selectedVisible) {
-      for (const code of group.codes) {
-        const key = code.code.toUpperCase()
-        if (!byCode.has(key)) byCode.set(key, { code, groupName: group.name })
-      }
+    setMergeDialog({
+      name: t('late.defaultMergeName', { count: selectedVisible.length }),
+      sourceNames: selectedVisible.map((group) => group.name),
+    })
+  }
+
+  const editMergeName = (merge: LateMerge) => {
+    setMergeDialog({ id: merge.id, name: merge.name, sourceNames: merge.sourceNames })
+  }
+
+  const saveMerge = () => {
+    if (!mergeDialog || !mergeDialog.name.trim()) return
+    const existing = mergeDialog.id
+      ? savedMerges.find((item) => item.id === mergeDialog.id)
+      : undefined
+    if (mergeDialog.id && !existing) {
+      setMergeDialog(null)
+      return
     }
-    const sourceNames = selectedVisible.map((group) => group.name)
-    const codes = Array.from(byCode.values()).map(({ code, groupName }) => ({
-      ...code,
-      sourceName: groupName,
-    }))
-    setMergedList({ sourceNames, codes })
-    setSelectedGroups(new Set())
-    setExpandedGroups(new Set([MERGED_GROUP_ID]))
+    const nextMerge = existing
+      ? { ...existing, name: mergeDialog.name.trim() }
+      : createLateMerge(mergeDialog.name, mergeDialog.sourceNames)
+    const next = mergeDialog.id
+      ? savedMerges.map((item) => item.id === mergeDialog.id ? nextMerge : item)
+      : [...savedMerges, nextMerge]
+    try {
+      saveLateMerges(next)
+      setSavedMerges(next)
+      if (!mergeDialog.id) {
+        setSelectedGroups(new Set())
+        setExpandedGroups((current) => new Set([...current, nextMerge.id]))
+      }
+      toast(t(existing ? 'late.mergeRenamed' : 'late.mergeSaved'), 'success')
+      setMergeDialog(null)
+    } catch {
+      toast(t('late.mergeSaveFailed'), 'error')
+    }
+  }
+
+  const removeSavedMerge = () => {
+    if (!removeMergeId) return
+    const next = savedMerges.filter((item) => item.id !== removeMergeId)
+    try {
+      saveLateMerges(next)
+      setSavedMerges(next)
+      setExpandedGroups((current) => {
+        const nextExpanded = new Set(current)
+        nextExpanded.delete(removeMergeId)
+        return nextExpanded
+      })
+      toast(t('late.mergeRemoved'), 'success')
+      setRemoveMergeId(null)
+    } catch {
+      toast(t('late.mergeSaveFailed'), 'error')
+    }
   }
 
   const confirmDeleteFromDemand = () => {
@@ -439,7 +523,6 @@ export function LateCodesPage() {
     try {
       saveRequestedCodes(next)
       setRequestedCodes(next)
-      setMergedList(null)
       if (deleteTarget.type === 'group') {
         setSelectedGroups((current) => {
           const nextSelection = new Set(current)
@@ -503,7 +586,7 @@ export function LateCodesPage() {
       />
       <p className="late-demand-hint">{t('late.demandHint')}</p>
 
-      {!flow.length ? (
+      {!flow.length && !savedMerges.length ? (
         <EmptyState
           icon={Boxes}
           title={t('late.linkTitle')}
@@ -513,10 +596,20 @@ export function LateCodesPage() {
               : t('late.linkNever')
           }
         />
-      ) : !groups.length ? (
-        <EmptyState icon={Inbox} title={t('late.empty')} text={t('late.emptyText')} />
       ) : (
         <>
+          {!flow.length ? (
+            <EmptyState
+              icon={Boxes}
+              title={t('late.linkTitle')}
+              text={publishedAt ? t('late.linkSeen', { when: relativeTime(publishedAt, lang) }) : t('late.linkNever')}
+            />
+          ) : null}
+
+          {!groups.length && !savedMerges.length ? (
+            <EmptyState icon={Inbox} title={t('late.empty')} text={t('late.emptyText')} />
+          ) : (
+            <>
           <div className="late-toolbar">
             <SearchField value={query} onChange={setQuery} placeholder={t('late.search')} />
             <div className="late-toolbar-actions">
@@ -524,7 +617,7 @@ export function LateCodesPage() {
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={toggleExpandedGroups}
-                disabled={!visibleGroups.length}
+                disabled={!pageGroups.length}
               >
                 <ChevronDown size={15} className={cx(allVisibleExpanded && 'is-rotated')} />
                 {allVisibleExpanded ? t('late.collapseAll') : t('late.expandAll')}
@@ -561,55 +654,103 @@ export function LateCodesPage() {
           {pageGroups.length ? (
             <div className="late-grid">
               {pageGroups.map((group) => {
-                const virtual = group.id === MERGED_GROUP_ID
+                const virtual = mergedIds.has(group.id)
                 return (
-                <LateGroupCard
-                  key={group.id}
-                  group={group}
-                  checked={!virtual && selectedGroups.has(group.id)}
-                  expanded={expandedGroups.has(group.id)}
-                  onSelect={() => {
-                    if (virtual) return
-                    setSelectedGroups((current) => {
-                      const next = new Set(current)
-                      if (next.has(group.id)) next.delete(group.id)
-                      else next.add(group.id)
-                      return next
-                    })
-                  }}
-                  onToggle={() => {
-                    setExpandedGroups((current) => {
-                      const next = new Set(current)
-                      if (next.has(group.id)) next.delete(group.id)
-                      else next.add(group.id)
-                      return next
-                    })
-                  }}
-                  onOpenCode={(target, code) =>
-                    setSelected({
-                      code: code.code,
-                      listName: code.sourceName || target.name,
-                      date: code.at,
-                      archived: false,
-                      inEntrepot: false,
-                    })
-                  }
-                  onCopy={(items) => void copyCodes(items)}
-                  onDeleteCode={(target, code) => setDeleteTarget({ type: 'code', group: target, code })}
-                  onDeleteGroup={(target) => setDeleteTarget({ type: 'group', group: target })}
-                  virtual={virtual}
-                  onRemoveVirtual={() => setMergedList(null)}
-                />
+                  <LateGroupCard
+                    key={group.id}
+                    group={group}
+                    checked={!virtual && selectedGroups.has(group.id)}
+                    expanded={expandedGroups.has(group.id)}
+                    onSelect={() => {
+                      if (virtual) return
+                      setSelectedGroups((current) => {
+                        const next = new Set(current)
+                        if (next.has(group.id)) next.delete(group.id)
+                        else next.add(group.id)
+                        return next
+                      })
+                    }}
+                    onToggle={() => {
+                      setExpandedGroups((current) => {
+                        const next = new Set(current)
+                        if (next.has(group.id)) next.delete(group.id)
+                        else next.add(group.id)
+                        return next
+                      })
+                    }}
+                    onOpenCode={(target, code) =>
+                      setSelected({
+                        code: code.code,
+                        listName: code.sourceName || target.name,
+                        date: code.at,
+                        archived: false,
+                        inEntrepot: false,
+                      })
+                    }
+                    onCopy={(items) => void copyCodes(items)}
+                    onDeleteCode={(target, code) => setDeleteTarget({ type: 'code', group: target, code })}
+                    onDeleteGroup={(target) => setDeleteTarget({ type: 'group', group: target })}
+                    virtual={virtual}
+                    onRemoveVirtual={() => setRemoveMergeId(group.id)}
+                    onRenameVirtual={() => {
+                      const merge = savedMerges.find((item) => item.id === group.id)
+                      if (merge) editMergeName(merge)
+                    }}
+                  />
                 )
               })}
             </div>
           ) : (
             <EmptyState icon={Inbox} title={t('late.searchEmpty')} text={t('late.searchEmptyText')} />
           )}
+            </>
+          )}
         </>
       )}
 
       <CodeRecordModal hit={selected} statusOf={statusOf} onClose={() => setSelected(null)} />
+      <Modal
+        open={mergeDialog !== null}
+        title={t(mergeDialog?.id ? 'late.renameMergeTitle' : 'late.nameMergeTitle')}
+        onClose={() => setMergeDialog(null)}
+        footer={(
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setMergeDialog(null)}>
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={saveMerge}
+              disabled={!mergeDialog?.name.trim()}
+            >
+              {t('late.saveMerge')}
+            </button>
+          </>
+        )}
+      >
+        <div className="field">
+          <label className="field-label" htmlFor="late-merge-name">{t('late.mergeNameLabel')}</label>
+          <input
+            id="late-merge-name"
+            className="input"
+            value={mergeDialog?.name ?? ''}
+            onChange={(event) => setMergeDialog((current) => current ? { ...current, name: event.target.value } : current)}
+            maxLength={80}
+            autoFocus
+          />
+        </div>
+      </Modal>
+      <ConfirmDialog
+        open={removeMergeId !== null}
+        title={t('late.removeMergeTitle')}
+        message={t('late.removeMergeText', { name: savedMerges.find((item) => item.id === removeMergeId)?.name ?? '' })}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        danger
+        onConfirm={removeSavedMerge}
+        onClose={() => setRemoveMergeId(null)}
+      />
       <ConfirmDialog
         open={deleteTarget !== null}
         title={t(deleteTarget?.type === 'group' ? 'late.deleteGroupTitle' : 'late.deleteCodeTitle')}
