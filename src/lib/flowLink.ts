@@ -1,14 +1,12 @@
 import { openDB, type IDBPDatabase } from 'idb'
 import type { ScannedCode } from '../types'
+import { getCloudLinkSlot, putCloudLinkSlot } from './cloudLink'
 
 /**
  * Direct link between Return Scanner Pro and ColisFlow.
  *
- * Both apps are hosted on the same origin (achgri71-wq.github.io), so they
- * share the browser's storage. This module exchanges snapshots through a
- * small shared IndexedDB database: this app publishes its return statuses
- * under the `rsp` slot, and reads the `flow` slot that ColisFlow publishes
- * with its distributor lists. No server, no account, works offline.
+ * Cross-device snapshots are exchanged through TextDB. The same-device
+ * IndexedDB/BroadcastChannel bridge remains as an offline/instant fallback.
  */
 
 const LINK_DB = 'colislink'
@@ -332,9 +330,29 @@ export function buildReturnIndex(data: {
  * fresh even before the next background publish.
  */
 export async function pullFlowDistributors(): Promise<FlowDistributor[]> {
-  const flow = await getSlot('flow')
-  const list = normalizeFlowDistributors(flow?.data ?? [])
-  storeFlowDistributors(list, flow?.at)
+  let at: string | undefined
+  let raw: unknown
+  let cloudError: unknown
+  try {
+    const cloud = await getCloudLinkSlot('flow')
+    if (cloud) {
+      raw = cloud.data
+      at = cloud.at
+    }
+  } catch (error) {
+    cloudError = error
+    console.warn('ColisFlow cloud read failed; using the same-device link:', error)
+  }
+
+  if (raw === undefined) {
+    const local = await getSlot('flow')
+    if (!local && cloudError) throw cloudError
+    raw = local?.data ?? []
+    at = local?.at
+  }
+
+  const list = normalizeFlowDistributors(raw)
+  storeFlowDistributors(list, at)
   return list
 }
 
@@ -347,7 +365,15 @@ export async function syncFlow(
   data: () => Parameters<typeof buildReturnIndex>[0],
 ): Promise<{ pushed: number }> {
   const { index, next, changed } = diffReturnIndex(buildReturnIndex(data()))
-  if (changed > 0) await putSlot('rsp', { returns: index })
+  if (changed > 0) {
+    const payload = { returns: index }
+    await putSlot('rsp', payload)
+    try {
+      await putCloudLinkSlot('rsp', payload)
+    } catch (error) {
+      console.warn('RSP cloud publish failed:', error)
+    }
+  }
   saveSnapshot(next)
   await pullFlowDistributors()
   return { pushed: changed }

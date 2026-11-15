@@ -482,13 +482,13 @@ export const messages = {
 
   'settings.flowTitle': ['ColisFlow', 'ColisFlow'],
   'settings.flowText': [
-    'Direct link with ColisFlow in this browser: publish return statuses and show, in the search, which distributor holds each code. No server, works offline.',
-    'ربط مباشر مع ColisFlow في نفس المتصفح: نشر حالات الإرجاع، وإظهار الموزع الذي يملك كل كود في نتائج البحث. بدون سيرفر ويعمل دون اتصال.',
+    'Cloud sync with ColisFlow through TextDB: lists and return statuses sync across devices. TextDB is public and unencrypted; anyone with the link can read or edit published codes. Local data still works offline.',
+    'مزامنة سحابية مع ColisFlow عبر TextDB: القوائم وحالات الإرجاع تتزامن بين الأجهزة. TextDB عام ودون تشفير؛ كل من لديه الرابط يستطيع قراءة الأكواد المنشورة أو تعديلها. يستمر التطبيق محلياً دون اتصال.',
   ],
   'flow.synced': ['{count} status(es) published to ColisFlow', 'تم نشر {count} حالة إلى ColisFlow'],
   'flow.autoNote': [
-    'Runs automatically every minute while the app is open. Both apps must be used in this browser.',
-    'يعمل تلقائياً كل دقيقة طالما التطبيق مفتوح. يجب استخدام التطبيقين في نفس المتصفح.',
+    'Syncs automatically about every minute while the apps are open and online.',
+    'تتم المزامنة تلقائياً كل دقيقة تقريباً ما دام التطبيقان مفتوحين ومتصلين بالإنترنت.',
   ],
   'search.atDistributor': ['At {name}', 'عند {name}'],
   'search.flowResults': ['Chez les distributeurs (ColisFlow)', 'عند الموزّعين (ColisFlow)'],
@@ -510,7 +510,7 @@ export const messages = {
   'fixed.imported': ['{lists} liste(s) · {codes} colis importés', 'تم استيراد {lists} قائمة · {codes} طرد'],
   'fixed.importEmpty': ['Rien à importer — ouvrez ColisFlow d’abord.', 'لا يوجد ما يُستورد — افتح ColisFlow أولاً.'],
   'fixed.importFailed': ['Import impossible. Réessayez.', 'تعذّر الاستيراد. أعد المحاولة.'],
-  'fixed.autoHint': ['Import automatique activé (ColisFlow, même navigateur).', 'الاستيراد التلقائي مفعّل (ColisFlow، نفس المتصفح).'],
+  'fixed.autoHint': ['Import automatique depuis le cloud, environ chaque minute.', 'الاستيراد التلقائي من السحابة، كل دقيقة تقريباً.'],
   'fixed.linked': ['Lié à ColisFlow', 'مربوط بـColisFlow'],
   'fixed.notLinkedShort': ['Non lié à ColisFlow', 'غير مربوط بـColisFlow'],
   'fixed.search': ['Rechercher un code…', 'بحث عن رمز…'],

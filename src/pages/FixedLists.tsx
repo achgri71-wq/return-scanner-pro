@@ -33,9 +33,6 @@ import { CodeRecordModal, STATUS_KEYS, STATUS_TONES, type CodeHit } from '../com
 
 const PER_LIST_CAP = 80
 const RESULT_CAP = 200
-/** Light automatic import: re-reads ColisFlow's shared link on its own. */
-const AUTO_POLL_MS = 25 * 1000
-
 interface RouteurCardData {
   id: string
   name: string
@@ -206,26 +203,6 @@ export function FixedListsPage() {
     const handler = () => setTick((value) => value + 1)
     window.addEventListener('rsp.flow', handler)
     return () => window.removeEventListener('rsp.flow', handler)
-  }, [])
-
-  // Automatic import: pull once on mount, then on a light poll. The global
-  // flow-link hook already exchanges updates; this keeps the page fresh on its
-  // own and is a cheap read of the shared database.
-  useEffect(() => {
-    const pull = async () => {
-      if (busy.current) return
-      busy.current = true
-      try {
-        await pullFlowDistributors()
-      } catch {
-        // Keep the cached snapshot; the next tick retries.
-      } finally {
-        busy.current = false
-      }
-    }
-    void pull()
-    const timer = window.setInterval(() => void pull(), AUTO_POLL_MS)
-    return () => window.clearInterval(timer)
   }, [])
 
   const flow = useMemo<FlowDistributor[]>(() => loadFlowDistributors(), [tick])

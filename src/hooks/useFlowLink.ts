@@ -8,10 +8,9 @@ const SYNC_INTERVAL_MS = 60 * 1000
 const INITIAL_DELAY_MS = 3000
 
 /**
- * Background link with ColisFlow: publishes this app's return statuses into
- * the shared browser database and refreshes the distributor cache used by
- * the search page. Both apps live on the same origin, so no server is
- * involved — updates are also exchanged instantly through BroadcastChannel.
+ * Background link with ColisFlow: publishes return statuses and refreshes
+ * distributor lists through TextDB for cross-device sync, while retaining the
+ * shared browser database and BroadcastChannel for instant local updates.
  */
 export function useFlowLink(enabled: boolean): void {
   const { t } = useI18n()
