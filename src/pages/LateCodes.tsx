@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Square,
   Trash2,
+  Truck,
   X,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
@@ -28,8 +29,8 @@ import {
 import { isFixedDistributor } from '../lib/fixedLists'
 import { loadRequestedCodes, saveRequestedCodes } from '../lib/colisDemande'
 import { createLateMerge, loadLateMerges, saveLateMerges, type LateMerge } from '../lib/lateMerges'
-import { cx, formatDate, relativeTime } from '../lib/utils'
-import { Badge, ConfirmDialog, EmptyState, Modal, PageHeader, SearchField } from '../components/ui'
+import { cx, formatDate, formatNumber, relativeTime } from '../lib/utils'
+import { Badge, ConfirmDialog, EmptyState, Modal, PageHeader, SearchField, StatCard } from '../components/ui'
 import { CodeRecordModal, type CodeHit } from '../components/CodeRecord'
 import { toast } from '../components/Toast'
 
@@ -48,6 +49,17 @@ import { toast } from '../components/Toast'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const CODE_PAGE_SIZE = 100
+
+function isSenditCode(code: string): boolean {
+  const normalized = code.trim().toUpperCase()
+  return normalized.startsWith('DH') || normalized.startsWith('DXH') || normalized.startsWith('DSH')
+}
+
+function senditDeliveryUrl(code: string): string | null {
+  return isSenditCode(code)
+    ? `https://app.sendit.ma/deliveries/${encodeURIComponent(code.trim())}`
+    : null
+}
 /** Local numbers (06…) are turned into international form for wa.me. */
 const COUNTRY_CODE = '212'
 
@@ -117,9 +129,11 @@ function LateGroupCard({
   useEffect(() => setLimit(CODE_PAGE_SIZE), [group.id, group.codes.length])
 
   const header = t('late.waHeader', { name: group.name, count: group.codes.length })
-  const lines = group.codes.map(
-    (item) => `• ${item.code} — ${formatDate(item.at, lang)}${item.sourceName ? ` (${item.sourceName})` : ''}`,
-  )
+  const lines = group.codes.map((item) => {
+    const source = item.sourceName ? ` (${item.sourceName})` : ''
+    const url = senditDeliveryUrl(item.code)
+    return `• ${item.code} — ${formatDate(item.at, lang)}${source}${url ? `\n  ${url}` : ''}`
+  })
   const message = [header, '', ...lines, '', t('late.waFooter')].join('\n')
 
   return (
@@ -399,6 +413,10 @@ export function LateCodesPage() {
     () => groups.reduce((sum, group) => sum + group.codes.length, 0),
     [groups],
   )
+  const senditTotal = useMemo(
+    () => new Set(groups.flatMap((group) => group.codes.map((item) => item.code.toUpperCase()).filter(isSenditCode)).values()).size,
+    [groups],
+  )
 
   const mergedSourceNames = useMemo(
     () => new Set(savedMerges.flatMap((merge) => merge.sourceNames.map((name) => name.trim().toLocaleLowerCase()))),
@@ -640,6 +658,21 @@ export function LateCodesPage() {
         }
       />
       <p className="late-demand-hint">{t('late.demandHint')}</p>
+      <div className="stats-grid late-stats">
+        <StatCard
+          icon={Boxes}
+          label={t('late.totalLabel')}
+          value={formatNumber(total, lang)}
+          tone="accent"
+        />
+        <StatCard
+          icon={Truck}
+          label={t('late.senditLabel')}
+          value={formatNumber(senditTotal, lang)}
+          hint="DH · DXH · DSH"
+          tone="info"
+        />
+      </div>
 
       {!flow.length && !savedMerges.length ? (
         <EmptyState

@@ -572,6 +572,8 @@ export const messages = {
 
   'nav.late': ['Retards', 'المتأخرة'],
   'late.title': ['Colis en retard', 'الطرود المتأخرة'],
+  'late.totalLabel': ['Total en retard', 'مجموع الطرود المتأخرة'],
+  'late.senditLabel': ['Sendit en retard', 'طرود Sendit المتأخرة'],
   'late.subtitle': ['Colis de ColisFlow présents aussi dans Colis demandé.', 'طرود ColisFlow الموجودة أيضاً في Colis demandé.'],
   'late.demandHint': ['Un colis compte comme en retard uniquement s’il est aussi inscrit dans Colis demandé.', 'يُحتسب الطرد متأخراً فقط إذا كان مسجلاً أيضاً في Colis demandé.'],
   'late.search': ['Rechercher un distributeur ou un code…', 'ابحث عن موزع أو كود…'],

@@ -5431,6 +5431,15 @@ html[dir='rtl'] .audit-row {
   font-size: 11px;
 }
 
+.late-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.late-stats .stat-card {
+  min-height: 74px;
+  padding: 10px;
+}
+
 .late-card {
   display: flex;
   flex-direction: column;
