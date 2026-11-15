@@ -329,8 +329,7 @@ export function FixedListsPage() {
           name: item.name,
           codes: item.codes.filter((code) => !needle || code.toLocaleLowerCase().includes(needle)),
           archived: item.archived,
-        }))
-        .filter((card) => card.codes.length > 0),
+        })),
     [flow, needle],
   )
 
