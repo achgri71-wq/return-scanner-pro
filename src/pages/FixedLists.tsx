@@ -10,7 +10,12 @@ import {
   type FlowDistributor,
   type ReturnStatus,
 } from '../lib/flowLink'
-import { FIXED_LISTS, isFixedListName } from '../lib/fixedLists'
+import {
+  fixedSlotFor,
+  FIXED_LISTS,
+  isFixedDistributor,
+  normalizeFixedName,
+} from '../lib/fixedLists'
 import { cx, formatDateTime } from '../lib/utils'
 import { Badge, EmptyState, PageHeader, SearchField } from '../components/ui'
 import { CodeRecordModal, STATUS_KEYS, STATUS_TONES, type CodeHit } from '../components/CodeRecord'
@@ -133,15 +138,9 @@ export function FixedListsPage() {
   const flow = useMemo<FlowDistributor[]>(() => loadFlowDistributors(), [tick])
 
   const fixedFlow = useMemo(
-    () => flow.filter((item) => isFixedListName(item.name)),
+    () => flow.filter((item) => isFixedDistributor(item)),
     [flow],
   )
-
-  const byName = useMemo(() => {
-    const map = new Map<string, FlowDistributor>()
-    for (const item of fixedFlow) map.set(item.name.trim().toLowerCase(), item)
-    return map
-  }, [fixedFlow])
 
   const flowByName = useMemo(
     () => new Map(flow.map((item) => [item.name.trim().toLowerCase(), item])),
@@ -227,24 +226,45 @@ export function FixedListsPage() {
     })
   }
 
-  const cards = useMemo(
-    () =>
-      FIXED_LISTS.map((fixed) => {
-        const item = byName.get(fixed.name.toLowerCase())
-        const codes = (item?.codes ?? []).filter(
+  // The six routeur cards, in the built-in order. A list ColisFlow publishes
+  // under a slightly different (or renamed) spelling still attaches to its
+  // slot, and a routeur ColisFlow flags but that matches no known name gets
+  // its own card at the end — no routeur list is ever dropped.
+  const cards = useMemo(() => {
+    const matched = new Set<string>()
+    const slots = FIXED_LISTS.map((fixed) => {
+      const item = fixedFlow.find(
+        (entry) => normalizeFixedName(entry.name) === normalizeFixedName(fixed.name),
+      )
+      if (item) matched.add(item.name.trim().toLowerCase())
+      return {
+        id: fixed.id,
+        name: item?.name ?? fixed.name,
+        codes: (item?.codes ?? []).filter(
           (code) => !needle || code.toLowerCase().includes(needle),
-        )
-        return { id: fixed.id, name: fixed.name, codes }
-      }),
-    [byName, needle],
-  )
+        ),
+        archived: item?.archived ?? false,
+      }
+    })
+    const extras = fixedFlow
+      .filter(
+        (entry) =>
+          !matched.has(entry.name.trim().toLowerCase()) && !fixedSlotFor(entry.name),
+      )
+      .map((entry) => ({
+        id: entry.name,
+        name: entry.name,
+        codes: entry.codes.filter((code) => !needle || code.toLowerCase().includes(needle)),
+        archived: entry.archived,
+      }))
+    return [...slots, ...extras]
+  }, [fixedFlow, needle])
 
   // Everything else ColisFlow publishes: every distributor and every code,
   // not only the permanent routeur lists.
   const otherCards = useMemo(() => {
-    const fixedNames = new Set(FIXED_LISTS.map((fixed) => fixed.name.toLowerCase()))
     return flow
-      .filter((item) => !fixedNames.has(item.name.trim().toLowerCase()))
+      .filter((item) => !isFixedDistributor(item))
       .map((item) => ({
         id: `other-${item.name.toLowerCase()}`,
         name: item.name,

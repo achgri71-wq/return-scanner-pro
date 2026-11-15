@@ -29,6 +29,8 @@ export interface FlowDistributor {
   since?: string[]
   date?: string
   archived: boolean
+  /** Permanent routeur list, as flagged by ColisFlow (independent of the name). */
+  fixed?: boolean
 }
 
 export interface ReturnIndexEntry {
@@ -129,6 +131,7 @@ export function normalizeFlowDistributors(raw: unknown): FlowDistributor[] {
       since?: unknown
       date?: unknown
       archived?: unknown
+      fixed?: unknown
     }
     const name = String(record.name ?? '').trim()
     if (!name) continue
@@ -166,6 +169,7 @@ export function normalizeFlowDistributors(raw: unknown): FlowDistributor[] {
       since: values.map((value) => value.since),
       date: rawDate && !Number.isNaN(Date.parse(rawDate)) ? rawDate : undefined,
       archived: Boolean(record.archived),
+      ...(record.fixed === true ? { fixed: true } : {}),
     })
   }
 

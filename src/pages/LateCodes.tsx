@@ -10,7 +10,7 @@ import {
   type FlowDistributor,
   type ReturnStatus,
 } from '../lib/flowLink'
-import { isFixedListName } from '../lib/fixedLists'
+import { isFixedDistributor } from '../lib/fixedLists'
 import { cx, formatDate, relativeTime } from '../lib/utils'
 import { Badge, EmptyState, PageHeader } from '../components/ui'
 import { CodeRecordModal, type CodeHit } from '../components/CodeRecord'
@@ -92,13 +92,13 @@ export function LateCodesPage() {
     }
     for (const entry of registry) done.add(entry.code.toUpperCase())
     for (const item of flow) {
-      if (!isFixedListName(item.name)) continue
+      if (!isFixedDistributor(item)) continue
       for (const code of item.codes) done.add(code.toUpperCase())
     }
 
     const result: LateGroup[] = []
     for (const item of flow) {
-      if (item.archived || isFixedListName(item.name)) continue
+      if (item.archived || isFixedDistributor(item)) continue
       const dates = item.dates ?? []
       const since = item.since ?? []
       const late: LateCode[] = []
