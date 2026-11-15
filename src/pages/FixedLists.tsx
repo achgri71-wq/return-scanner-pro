@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Boxes, ChevronDown, Inbox, RefreshCw } from 'lucide-react'
+import { Boxes, ChevronDown, Inbox, RefreshCw, ScrollText } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useI18n, type TKey } from '../i18n'
 import {
@@ -10,8 +10,9 @@ import {
   type ReturnStatus,
 } from '../lib/flowLink'
 import { FIXED_LISTS, isFixedListName } from '../lib/fixedLists'
-import { cx, formatDateTime } from '../lib/utils'
-import { Badge, EmptyState, PageHeader, SearchField, type Tone } from '../components/ui'
+import { cx, formatDate, formatDateTime } from '../lib/utils'
+import { Badge, EmptyState, Modal, PageHeader, SearchField, type Tone } from '../components/ui'
+import { ParcelStatusBadge, RegistryStatusBadge } from '../components/StatusBadge'
 
 /**
  * Read-only view of the six permanent routeur lists.
@@ -38,18 +39,142 @@ const STATUS_KEYS: Record<ReturnStatus, TKey> = {
   prohibited: 'search.prohibitedStatus',
 }
 
+interface CodeHit {
+  code: string
+  listName: string
+  date?: string
+  archived: boolean
+}
+
+/** Full record of one code: ColisFlow side + this app's own data (Entrepôt…). */
+function CodeRecordModal({
+  hit,
+  statusOf,
+  onClose,
+}: {
+  hit: CodeHit | null
+  statusOf: Map<string, ReturnStatus>
+  onClose: () => void
+}) {
+  const { t, lang } = useI18n()
+  const lists = useStore((state) => state.lists)
+  const parcels = useStore((state) => state.parcels)
+  const registry = useStore((state) => state.registry)
+  const blacklist = useStore((state) => state.blacklist)
+
+  const info = useMemo(() => {
+    if (!hit) return null
+    const key = hit.code.toUpperCase()
+    const parcel = parcels.find((entry) => entry.code.toUpperCase() === key) ?? null
+    const entry = registry.find((item) => item.code.toUpperCase() === key) ?? null
+    const banned = blacklist.find((item) => item.code.toUpperCase() === key) ?? null
+    const list = parcel ? lists.find((item) => item.id === parcel.listId) ?? null : null
+    return { parcel, entry, banned, list }
+  }, [hit, parcels, registry, blacklist, lists])
+
+  const status = hit ? statusOf.get(hit.code.toUpperCase()) : undefined
+
+  return (
+    <Modal
+      open={Boolean(hit)}
+      onClose={onClose}
+      title={t('fixed.codeRecord')}
+      subtitle={hit?.code}
+      icon={<ScrollText size={20} />}
+      size="sm"
+    >
+      {hit && info ? (
+        <div className="code-record">
+          <div className="code-record-row">
+            <span className="code-record-label">{t('fixed.labelStatus')}</span>
+            <div className="code-record-value">
+              {status ? (
+                <Badge tone={STATUS_TONES[status]}>{t(STATUS_KEYS[status])}</Badge>
+              ) : (
+                <Badge tone="muted">{t('fixed.noStatus')}</Badge>
+              )}
+            </div>
+          </div>
+
+          <div className="code-record-row">
+            <span className="code-record-label">{t('fixed.labelColisflow')}</span>
+            <div className="code-record-value">
+              <strong>{hit.listName}</strong>
+              {hit.date ? <small>{formatDateTime(hit.date, lang)}</small> : null}
+            </div>
+          </div>
+
+          <div className="code-record-row">
+            <span className="code-record-label">{t('fixed.labelEntrepot')}</span>
+            <div className="code-record-value">
+              {info.entry ? (
+                <>
+                  <RegistryStatusBadge
+                    status={info.banned ? 'return-prohibited' : info.entry.status}
+                  />
+                  <small>
+                    {t('registry.firstScan')} : {formatDate(info.entry.firstScanAt, lang)}
+                  </small>
+                  <small>
+                    {t('records.attempts')} : {info.entry.attempts}
+                  </small>
+                </>
+              ) : (
+                <Badge tone="muted">{t('fixed.notInEntrepot')}</Badge>
+              )}
+            </div>
+          </div>
+
+          {info.parcel && info.list ? (
+            <div className="code-record-row">
+              <span className="code-record-label">{t('fixed.labelList')}</span>
+              <div className="code-record-value">
+                <strong>{info.list.name}</strong>
+                <ParcelStatusBadge status={info.parcel.status} />
+                <small>
+                  {t('records.addedAt')} : {formatDate(info.parcel.addedAt, lang)}
+                </small>
+                {info.parcel.returnedAt ? (
+                  <small>
+                    {t('records.returnedAt')} : {formatDate(info.parcel.returnedAt, lang)}
+                  </small>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {info.banned ? (
+            <div className="code-record-row">
+              <span className="code-record-label">{t('fixed.labelBlacklist')}</span>
+              <div className="code-record-value">
+                <Badge tone="danger">{t('search.prohibitedStatus')}</Badge>
+                {info.banned.reason ? <small>{info.banned.reason}</small> : null}
+                {info.banned.addedAt ? (
+                  <small>{formatDate(info.banned.addedAt, lang)}</small>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </Modal>
+  )
+}
+
 function FixedListCard({
   name,
   codes,
   statusOf,
   query,
   archived,
+  onOpenCode,
 }: {
   name: string
   codes: string[]
   statusOf: Map<string, ReturnStatus>
   query: string
   archived?: boolean
+  onOpenCode?: (code: string) => void
 }) {
   const { t } = useI18n()
   const [limit, setLimit] = useState(PER_LIST_CAP)
@@ -86,13 +211,20 @@ function FixedListCard({
               {visible.map((code) => {
                 const status = statusOf.get(code.toUpperCase())
                 return (
-                  <li key={code} className="fixed-code-row">
-                    <span className="mono">{code}</span>
-                    {status ? (
-                      <Badge tone={STATUS_TONES[status]}>{t(STATUS_KEYS[status])}</Badge>
-                    ) : (
-                      <Badge tone="muted">{t('fixed.noStatus')}</Badge>
-                    )}
+                  <li key={code}>
+                    <button
+                      type="button"
+                      className="fixed-code-row"
+                      onClick={() => onOpenCode?.(code)}
+                      aria-label={code}
+                    >
+                      <span className="mono">{code}</span>
+                      {status ? (
+                        <Badge tone={STATUS_TONES[status]}>{t(STATUS_KEYS[status])}</Badge>
+                      ) : (
+                        <Badge tone="muted">{t('fixed.noStatus')}</Badge>
+                      )}
+                    </button>
                   </li>
                 )
               })}
@@ -125,6 +257,7 @@ export function FixedListsPage() {
   const [tick, setTick] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
   const [query, setQuery] = useState('')
+  const [selected, setSelected] = useState<CodeHit | null>(null)
 
   useEffect(() => {
     const handler = () => setTick((value) => value + 1)
@@ -144,6 +277,11 @@ export function FixedListsPage() {
     for (const item of fixedFlow) map.set(item.name.trim().toLowerCase(), item)
     return map
   }, [fixedFlow])
+
+  const flowByName = useMemo(
+    () => new Map(flow.map((item) => [item.name.trim().toLowerCase(), item])),
+    [flow],
+  )
 
   const needle = query.trim().toLowerCase()
 
@@ -169,9 +307,9 @@ export function FixedListsPage() {
   }, [flow])
 
   // Flat search results: every matching code with its list, entry date and status.
-  const results = useMemo(() => {
+  const results = useMemo<CodeHit[]>(() => {
     if (!needle) return []
-    const hits: { code: string; listName: string; date?: string; archived: boolean }[] = []
+    const hits: CodeHit[] = []
     for (const item of flow) {
       for (const code of item.codes) {
         if (!code.toLowerCase().includes(needle)) continue
@@ -186,6 +324,17 @@ export function FixedListsPage() {
     hits.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
     return hits
   }, [flow, needle, dateOf])
+
+  // Opens the record of a code clicked inside a grouped list card.
+  const openFromCard = (code: string, listName: string) => {
+    const item = flowByName.get(listName.toLowerCase())
+    setSelected({
+      code,
+      listName,
+      date: dateOf.get(code.toUpperCase()) || item?.date,
+      archived: item?.archived ?? false,
+    })
+  }
 
   const cards = useMemo(
     () =>
@@ -271,23 +420,27 @@ export function FixedListsPage() {
                   {results.slice(0, RESULT_CAP).map((hit) => {
                     const status = statusOf.get(hit.code.toUpperCase())
                     return (
-                      <li
-                        key={`${hit.listName}-${hit.code}`}
-                        className={cx('fixed-result', hit.archived && 'is-archived')}
-                      >
-                        <div className="fixed-result-top">
-                          <span className="mono">{hit.code}</span>
-                          {status ? (
-                            <Badge tone={STATUS_TONES[status]}>{t(STATUS_KEYS[status])}</Badge>
-                          ) : (
-                            <Badge tone="muted">{t('fixed.noStatus')}</Badge>
-                          )}
-                        </div>
-                        <div className="fixed-result-sub">
-                          <span className="fixed-result-list">{hit.listName}</span>
-                          {hit.archived ? <Badge tone="muted">{t('status.archived')}</Badge> : null}
-                          <span>{hit.date ? formatDateTime(hit.date, lang) : '—'}</span>
-                        </div>
+                      <li key={`${hit.listName}-${hit.code}`}>
+                        <button
+                          type="button"
+                          className={cx('fixed-result', hit.archived && 'is-archived')}
+                          onClick={() => setSelected(hit)}
+                          aria-label={hit.code}
+                        >
+                          <span className="fixed-result-top">
+                            <span className="mono">{hit.code}</span>
+                            {status ? (
+                              <Badge tone={STATUS_TONES[status]}>{t(STATUS_KEYS[status])}</Badge>
+                            ) : (
+                              <Badge tone="muted">{t('fixed.noStatus')}</Badge>
+                            )}
+                          </span>
+                          <span className="fixed-result-sub">
+                            <span className="fixed-result-list">{hit.listName}</span>
+                            {hit.archived ? <Badge tone="muted">{t('status.archived')}</Badge> : null}
+                            <span>{hit.date ? formatDateTime(hit.date, lang) : '—'}</span>
+                          </span>
+                        </button>
                       </li>
                     )
                   })}
@@ -314,6 +467,7 @@ export function FixedListsPage() {
                       codes={card.codes}
                       statusOf={statusOf}
                       query={query}
+                      onOpenCode={(code) => openFromCard(code, card.name)}
                     />
                   ))}
                 </div>
@@ -331,6 +485,7 @@ export function FixedListsPage() {
                         archived={card.archived}
                         statusOf={statusOf}
                         query={query}
+                        onOpenCode={(code) => openFromCard(code, card.name)}
                       />
                     ))}
                   </div>
@@ -352,6 +507,12 @@ export function FixedListsPage() {
           text={t('fixed.notLinkedText')}
         />
       )}
+
+      <CodeRecordModal
+        hit={selected}
+        statusOf={statusOf}
+        onClose={() => setSelected(null)}
+      />
     </div>
   )
 }

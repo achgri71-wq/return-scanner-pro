@@ -5385,12 +5385,24 @@ html[dir='rtl'] .audit-row {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  width: 100%;
   padding: 8px 12px;
+  border: none;
   border-top: 1px solid var(--border);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background 0.15s;
 }
 
 .fixed-code-row:first-child {
   border-top: none;
+}
+
+.fixed-code-row:hover {
+  background: var(--surface-2);
 }
 
 .fixed-code-row .mono {
@@ -5416,12 +5428,24 @@ html[dir='rtl'] .audit-row {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  width: 100%;
   padding: 9px 12px;
+  border: none;
   border-top: 1px solid var(--border);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background 0.15s;
 }
 
 .fixed-result:first-child {
   border-top: none;
+}
+
+.fixed-result:hover {
+  background: var(--surface-2);
 }
 
 .fixed-result.is-archived {
@@ -5472,5 +5496,93 @@ html[dir='rtl'] .audit-row {
   .fixed-grid {
     grid-template-columns: 1fr;
   }
+
+  /* Compact rows: the code must not stretch the page on a phone. */
+  .fixed-card {
+    padding: 12px;
+  }
+
+  .fixed-card-name {
+    font-size: 13.5px;
+  }
+
+  .fixed-card-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .fixed-code-row,
+  .fixed-result {
+    padding: 6px 10px;
+  }
+
+  .fixed-codes .mono,
+  .fixed-result-top .mono {
+    font-size: 12px;
+  }
+
+  .fixed-result {
+    gap: 2px;
+  }
+
+  .fixed-result-sub {
+    font-size: 10.5px;
+    gap: 6px;
+  }
+
+  .code-record-value {
+    font-size: 12.5px;
+  }
+}
+
+/* ---------- Code record (clicked from the routeur lists) ---------- */
+
+.code-record {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.code-record-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.code-record-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.code-record-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.code-record-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+  text-align: end;
+  font-size: 13px;
+}
+
+.code-record-value strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.code-record-value small {
+  font-size: 11px;
+  color: var(--muted);
 }
 

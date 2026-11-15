@@ -236,7 +236,7 @@ export const messages = {
   'blacklist.count': ['{count} code(s) bloqué(s)', '{count} كود محظور'],
   'blacklist.danger': ['Un code bloqué reste refusé même s’il est dans la liste active.', 'الكود المحظور يبقى مرفوضاً حتى لو كان في القائمة النشطة.'],
 
-  'registry.title': ['Registre des scans', 'سجل عمليات المسح'],
+  'registry.title': ['Entrepôt', 'المخزن'],
   'registry.firstScan': ['Premier scan', 'أول مسح'],
   'registry.lastAttempt': ['Dernière tentative', 'آخر محاولة'],
 
@@ -505,6 +505,13 @@ export const messages = {
   'fixed.collapse': ['Plier', 'طيّ'],
   'fixed.others': ['Autres listes (ColisFlow)', 'قوائم أخرى (ColisFlow)'],
   'fixed.more': ['{count} autres…', '{count} أخرى…'],
+  'fixed.codeRecord': ['Fiche du code', 'سجل الكود'],
+  'fixed.labelStatus': ['Statut', 'الحالة'],
+  'fixed.labelColisflow': ['ColisFlow', 'ColisFlow'],
+  'fixed.labelEntrepot': ['Entrepôt', 'المخزن'],
+  'fixed.labelList': ['Liste de retours', 'قائمة الإرجاع'],
+  'fixed.labelBlacklist': ['Liste noire', 'القائمة السوداء'],
+  'fixed.notInEntrepot': ['Absent de l’entrepôt', 'غير موجود في المخزن'],
   'fixed.noStatus': ['Inconnu', 'غير معروف'],
   'fixed.emptyList': ['Aucun colis dans cette liste.', 'لا توجد طرود في هذه القائمة.'],
   'fixed.notLinked': ['Aucune liste routeur', 'لا توجد قوائم موجّهين'],
