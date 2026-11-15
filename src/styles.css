@@ -5342,15 +5342,6 @@ html[dir='rtl'] .audit-row {
   gap: 12px;
 }
 
-.fixed-sync-line {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--muted);
-  font-size: 11px;
-  margin-top: -7px;
-}
-
 .fixed-sync-dot {
   width: 7px;
   height: 7px;
@@ -5358,6 +5349,44 @@ html[dir='rtl'] .audit-row {
   border-radius: 50%;
   background: var(--success);
   box-shadow: 0 0 0 3px var(--success-soft);
+}
+
+.fixed-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.fixed-link:not(.is-linked) .fixed-sync-dot {
+  background: var(--muted);
+  box-shadow: 0 0 0 3px var(--surface-2);
+}
+
+.fixed-link-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.fixed-link-text strong {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.fixed-link-text small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.fixed-auto-hint {
+  margin: -4px 2px 0;
+  color: var(--muted);
+  font-size: 10.5px;
 }
 
 .fixed-overview {

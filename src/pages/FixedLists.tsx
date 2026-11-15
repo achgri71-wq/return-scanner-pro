@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Boxes,
   CalendarDays,
   ChevronDown,
   ChevronRight,
+  Download,
   Inbox,
   RefreshCw,
   Truck,
@@ -15,7 +16,7 @@ import {
   buildReturnIndex,
   loadFlowDistributors,
   loadFlowPublishedAt,
-  syncFlow,
+  pullFlowDistributors,
   type FlowDistributor,
   type ReturnStatus,
 } from '../lib/flowLink'
@@ -27,10 +28,13 @@ import {
 } from '../lib/fixedLists'
 import { cx, formatDateTime, relativeTime } from '../lib/utils'
 import { Badge, EmptyState, PageHeader, SearchField, StatCard } from '../components/ui'
+import { toast } from '../components/Toast'
 import { CodeRecordModal, STATUS_KEYS, STATUS_TONES, type CodeHit } from '../components/CodeRecord'
 
 const PER_LIST_CAP = 80
 const RESULT_CAP = 200
+/** Light automatic import: re-reads ColisFlow's shared link on its own. */
+const AUTO_POLL_MS = 25 * 1000
 
 interface RouteurCardData {
   id: string
@@ -175,6 +179,14 @@ function DistributorCard({
   )
 }
 
+/**
+ * Routeurs page: the six permanent ColisFlow routeur lists plus any other
+ * distributor list, filled straight from ColisFlow's shared link.
+ *
+ * Import works two ways: a manual button (tap to pull right now) and an
+ * automatic background refresh (the shared link's `rsp.flow` event, plus a
+ * light poll), so the lists appear on their own without any tap.
+ */
 export function FixedListsPage() {
   const { t, lang } = useI18n()
   const lists = useStore((state) => state.lists)
@@ -183,14 +195,37 @@ export function FixedListsPage() {
   const blacklist = useStore((state) => state.blacklist)
 
   const [tick, setTick] = useState(0)
-  const [refreshing, setRefreshing] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<CodeHit | null>(null)
 
+  const busy = useRef(false)
+
+  // Instant refresh whenever the shared link publishes something new.
   useEffect(() => {
     const handler = () => setTick((value) => value + 1)
     window.addEventListener('rsp.flow', handler)
     return () => window.removeEventListener('rsp.flow', handler)
+  }, [])
+
+  // Automatic import: pull once on mount, then on a light poll. The global
+  // flow-link hook already exchanges updates; this keeps the page fresh on its
+  // own and is a cheap read of the shared database.
+  useEffect(() => {
+    const pull = async () => {
+      if (busy.current) return
+      busy.current = true
+      try {
+        await pullFlowDistributors()
+      } catch {
+        // Keep the cached snapshot; the next tick retries.
+      } finally {
+        busy.current = false
+      }
+    }
+    void pull()
+    const timer = window.setInterval(() => void pull(), AUTO_POLL_MS)
+    return () => window.clearInterval(timer)
   }, [])
 
   const flow = useMemo<FlowDistributor[]>(() => loadFlowDistributors(), [tick])
@@ -201,6 +236,7 @@ export function FixedListsPage() {
     [flow],
   )
   const needle = query.trim().toLocaleLowerCase()
+  const linked = flow.length > 0 || publishedAt !== null
 
   const statusOf = useMemo(() => {
     const listNames = new Map(lists.map((list) => [list.id, list.name]))
@@ -307,11 +343,10 @@ export function FixedListsPage() {
     [fixedFlow],
   )
   const otherCodes = useMemo(
-    () => otherCards.reduce((sum, item) => sum + item.codes.length, 0),
+    () => otherCards.reduce((sum, card) => sum + card.codes.length, 0),
     [otherCards],
   )
   const populatedRouteurs = cards.filter((card) => card.codes.length > 0).length
-  const linked = flow.length > 0
 
   const openRecord = (code: string, listName?: string) => {
     const item = listName ? flowByName.get(listName.trim().toLowerCase()) : undefined
@@ -324,21 +359,25 @@ export function FixedListsPage() {
     })
   }
 
-  const refresh = async () => {
-    if (refreshing) return
-    setRefreshing(true)
+  /** Manual import: pulls ColisFlow's lists right now and reports the result. */
+  const importNow = async () => {
+    if (busy.current) return
+    busy.current = true
+    setImporting(true)
     try {
-      const state = useStore.getState()
-      await syncFlow(() => ({
-        parcels: state.parcels,
-        registry: state.registry,
-        blacklist: state.blacklist,
-        listNames: new Map(state.lists.map((list) => [list.id, list.name])),
-      }))
-    } catch {
-      // The cached snapshot remains visible; the next scheduled sync retries.
+      const list = await pullFlowDistributors()
+      const codes = list.reduce((sum, item) => sum + item.codes.length, 0)
+      if (list.length) {
+        toast(t('fixed.imported', { lists: list.length, codes }), 'success')
+      } else {
+        toast(t('fixed.importEmpty'), 'warning')
+      }
+    } catch (error) {
+      console.warn('routeur import failed:', error)
+      toast(t('fixed.importFailed'), 'error')
     } finally {
-      setRefreshing(false)
+      busy.current = false
+      setImporting(false)
       setTick((value) => value + 1)
     }
   }
@@ -351,25 +390,35 @@ export function FixedListsPage() {
         actions={
           <button
             type="button"
-            className="btn btn-secondary"
-            onClick={() => void refresh()}
-            disabled={refreshing}
+            className="btn btn-primary"
+            onClick={() => void importNow()}
+            disabled={importing}
           >
-            <RefreshCw size={16} className={cx(refreshing && 'spin')} />
-            {t('fixed.refresh')}
+            {importing ? (
+              <RefreshCw size={16} className="spin" />
+            ) : (
+              <Download size={16} />
+            )}
+            {importing ? t('fixed.importing') : t('fixed.import')}
           </button>
         }
       />
 
-      {linked ? (
-        <>
-          <div className="fixed-sync-line">
-            <span className="fixed-sync-dot" aria-hidden="true" />
+      <div className={cx('fixed-link', linked && 'is-linked')}>
+        <span className="fixed-sync-dot" aria-hidden="true" />
+        <div className="fixed-link-text">
+          <strong>{linked ? t('fixed.linked') : t('fixed.notLinkedShort')}</strong>
+          <small>
             {publishedAt
               ? t('fixed.lastSync', { when: relativeTime(publishedAt, lang) })
               : t('fixed.syncWaiting')}
-          </div>
+          </small>
+        </div>
+      </div>
+      <p className="fixed-auto-hint">{t('fixed.autoHint')}</p>
 
+      {linked ? (
+        <>
           <div className="stats-grid fixed-overview">
             <StatCard
               icon={Truck}
@@ -490,12 +539,16 @@ export function FixedListsPage() {
           action={
             <button
               type="button"
-              className="btn btn-secondary"
-              onClick={() => void refresh()}
-              disabled={refreshing}
+              className="btn btn-primary"
+              onClick={() => void importNow()}
+              disabled={importing}
             >
-              <RefreshCw size={16} className={cx(refreshing && 'spin')} />
-              {t('fixed.refresh')}
+              {importing ? (
+                <RefreshCw size={16} className="spin" />
+              ) : (
+                <Download size={16} />
+              )}
+              {importing ? t('fixed.importing') : t('fixed.import')}
             </button>
           }
         />

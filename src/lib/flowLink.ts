@@ -326,6 +326,19 @@ export function buildReturnIndex(data: {
 }
 
 /**
+ * Reads ColisFlow's published slot and refreshes the cached distributor lists.
+ * This is the "import" half of the link, on its own: the routeur page calls it
+ * when the user taps the import button and on a light poll, so the lists stay
+ * fresh even before the next background publish.
+ */
+export async function pullFlowDistributors(): Promise<FlowDistributor[]> {
+  const flow = await getSlot('flow')
+  const list = normalizeFlowDistributors(flow?.data ?? [])
+  storeFlowDistributors(list, flow?.at)
+  return list
+}
+
+/**
  * Full background sync: publishes this app's return statuses into the shared
  * database (only when the index changed) and refreshes the distributor cache
  * used by the search page from ColisFlow's slot.
@@ -336,7 +349,6 @@ export async function syncFlow(
   const { index, next, changed } = diffReturnIndex(buildReturnIndex(data()))
   if (changed > 0) await putSlot('rsp', { returns: index })
   saveSnapshot(next)
-  const flow = await getSlot('flow')
-  storeFlowDistributors(normalizeFlowDistributors(flow?.data ?? []), flow?.at)
+  await pullFlowDistributors()
   return { pushed: changed }
 }
