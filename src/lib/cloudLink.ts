@@ -17,9 +17,19 @@ const CLOUD_URLS: Record<CloudLinkSlot, string> = {
   rsp: 'https://textdb.dev/api/data/ef7d9431-5e6c-4b80-9eb2-34b05459c141',
 }
 
+// TextDB writes are slow (roughly 40 KB/s) and grow with the number of lists
+// and parcels, so a fixed 8s cut-off aborted any moderately large snapshot.
+// Reads are quicker than writes, but a large record still needs headroom.
+const READ_TIMEOUT_MS = 30_000
+const WRITE_TIMEOUT_MS = 60_000
+
 async function cloudFetch(url: string, init?: RequestInit): Promise<Response> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 8000)
+  const method = (init?.method ?? 'GET').toUpperCase()
+  const timeout = setTimeout(
+    () => controller.abort(),
+    method === 'GET' ? READ_TIMEOUT_MS : WRITE_TIMEOUT_MS,
+  )
   try {
     return await fetch(url, { ...init, signal: controller.signal })
   } finally {
