@@ -676,6 +676,10 @@ export const messages = {
     'Dernière publication de ColisFlow : {when}.',
     'آخر نشر من ColisFlow: {when}.',
   ],
+  'late.moveToLivri': ['Déplacer vers Livri', 'نقل إلى ليفري'],
+  'late.movedToLivri': ['{code} déplacé vers Livri', 'تم نقل {code} إلى ليفري'],
+  'late.alreadyInLivri': ['{code} est déjà dans Livri', '{code} موجود مسبقاً في ليفري'],
+  'late.livriSaveFailed': ['Impossible de déplacer vers Livri.', 'تعذّر النقل إلى ليفري.'],
   // @@END@@
 } as const satisfies Record<string, readonly [string, string]>
 

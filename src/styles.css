@@ -5613,6 +5613,13 @@ html[dir='rtl'] .audit-row {
   margin-inline-end: 6px;
 }
 
+.late-livri-code {
+  flex: none;
+  align-self: center;
+  margin-inline-end: 6px;
+  color: var(--accent);
+}
+
 .late-code-source {
   max-width: 120px;
   overflow: hidden;

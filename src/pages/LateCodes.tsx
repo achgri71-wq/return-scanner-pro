@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   AlarmClock,
+  Ban,
   Boxes,
   CheckSquare,
   ChevronDown,
@@ -28,7 +29,7 @@ import {
 } from '../lib/flowLink'
 import { isFixedDistributor } from '../lib/fixedLists'
 import { loadRequestedCodes, saveRequestedCodes } from '../lib/colisDemande'
-import { loadLivriCodes } from '../lib/livri'
+import { loadLivriCodes, makeLivriCode, saveLivriCodes } from '../lib/livri'
 import { createLateMerge, loadLateMerges, saveLateMerges, type LateMerge } from '../lib/lateMerges'
 import { cx, formatDate, formatNumber, relativeTime } from '../lib/utils'
 import { Badge, ConfirmDialog, EmptyState, Modal, PageHeader, SearchField, StatCard } from '../components/ui'
@@ -105,6 +106,7 @@ function LateGroupCard({
   onCopy,
   onDeleteCode,
   onDeleteGroup,
+  onMoveToLivri,
   virtual = false,
   onRemoveVirtual,
   onRenameVirtual,
@@ -119,6 +121,7 @@ function LateGroupCard({
   onCopy: (codes: LateCode[]) => void
   onDeleteCode: (group: LateGroup, code: LateCode) => void
   onDeleteGroup: (group: LateGroup) => void
+  onMoveToLivri: (group: LateGroup, code: LateCode) => void
   virtual?: boolean
   onRemoveVirtual?: () => void
   onRenameVirtual?: () => void
@@ -261,6 +264,15 @@ function LateGroupCard({
                   aria-label={t('late.copyCode')}
                 >
                   <Copy size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn late-livri-code"
+                  onClick={() => onMoveToLivri(group, item)}
+                  title={t('late.moveToLivri')}
+                  aria-label={t('late.moveToLivri')}
+                >
+                  <Ban size={14} />
                 </button>
               </li>
             ))}
@@ -510,6 +522,25 @@ export function LateCodesPage() {
       toast(t('late.copied', { count: items.length }), 'success')
     } catch {
       toast(t('late.copyFailed'), 'error')
+    }
+  }
+
+  // Moves one late code to the independent Livri list: Livri hides it from the
+  // late notices, so the card above drops it on the next render.
+  const moveToLivri = (_group: LateGroup, code: LateCode) => {
+    const current = loadLivriCodes()
+    const key = code.code.toUpperCase()
+    if (current.some((item) => item.code.toUpperCase() === key)) {
+      toast(t('late.alreadyInLivri', { code: code.code }), 'info')
+      return
+    }
+    const next = [...current, makeLivriCode(code.code)]
+    try {
+      saveLivriCodes(next)
+      setLivriCodes(next)
+      toast(t('late.movedToLivri', { code: code.code }), 'success')
+    } catch {
+      toast(t('late.livriSaveFailed'), 'error')
     }
   }
 
@@ -791,6 +822,7 @@ export function LateCodesPage() {
                       })
                     }
                     onCopy={(items) => void copyCodes(items)}
+                    onMoveToLivri={moveToLivri}
                     onDeleteCode={(target, code) => setDeleteTarget({ type: 'code', group: target, code })}
                     onDeleteGroup={(target) => setDeleteTarget({ type: 'group', group: target })}
                     virtual={virtual}
