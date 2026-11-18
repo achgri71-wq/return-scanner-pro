@@ -28,6 +28,7 @@ import {
 } from '../lib/flowLink'
 import { isFixedDistributor } from '../lib/fixedLists'
 import { loadRequestedCodes, saveRequestedCodes } from '../lib/colisDemande'
+import { loadLivriCodes } from '../lib/livri'
 import { createLateMerge, loadLateMerges, saveLateMerges, type LateMerge } from '../lib/lateMerges'
 import { cx, formatDate, formatNumber, relativeTime } from '../lib/utils'
 import { Badge, ConfirmDialog, EmptyState, Modal, PageHeader, SearchField, StatCard } from '../components/ui'
@@ -301,6 +302,7 @@ export function LateCodesPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [selected, setSelected] = useState<CodeHit | null>(null)
   const [requestedCodes, setRequestedCodes] = useState(() => loadRequestedCodes())
+  const [livriCodes, setLivriCodes] = useState(() => loadLivriCodes())
   const [query, setQuery] = useState('')
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(() => new Set())
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set())
@@ -322,17 +324,22 @@ export function LateCodesPage() {
   useEffect(() => {
     const handler = () => setTick((value) => value + 1)
     const reloadRequested = () => setRequestedCodes(loadRequestedCodes())
+    const reloadLivri = () => setLivriCodes(loadLivriCodes())
     const reloadMerges = () => setSavedMerges(loadLateMerges())
     window.addEventListener('rsp.flow', handler)
     window.addEventListener('rsp.colis-demande', reloadRequested)
+    window.addEventListener('rsp.livri', reloadLivri)
     window.addEventListener('rsp.late-merges', reloadMerges)
     window.addEventListener('storage', reloadRequested)
+    window.addEventListener('storage', reloadLivri)
     window.addEventListener('storage', reloadMerges)
     return () => {
       window.removeEventListener('rsp.flow', handler)
       window.removeEventListener('rsp.colis-demande', reloadRequested)
+      window.removeEventListener('rsp.livri', reloadLivri)
       window.removeEventListener('rsp.late-merges', reloadMerges)
       window.removeEventListener('storage', reloadRequested)
+      window.removeEventListener('storage', reloadLivri)
       window.removeEventListener('storage', reloadMerges)
     }
   }, [])
@@ -343,6 +350,12 @@ export function LateCodesPage() {
   const requestedSet = useMemo(
     () => new Set(requestedCodes.map((item) => item.code.toUpperCase())),
     [requestedCodes],
+  )
+  // Codes listed on the independent "Livri" page are hidden from the late
+  // notices, whatever else says about them.
+  const livriSet = useMemo(
+    () => new Set(livriCodes.map((item) => item.code.toUpperCase())),
+    [livriCodes],
   )
 
   const statusOf = useMemo(() => {
@@ -378,6 +391,8 @@ export function LateCodesPage() {
       const late: LateCode[] = []
       item.codes.forEach((code, index) => {
         const key = code.toUpperCase()
+        // Livri codes are excluded from the late notices entirely.
+        if (livriSet.has(key)) return
         // A ColisFlow parcel only counts as late when the operator has also
         // added it to the independent Colis Demandé list in this app.
         if (!requestedSet.has(key)) return
@@ -407,7 +422,7 @@ export function LateCodesPage() {
     // Order the distributors by the first letters of their name.
     result.sort((a, b) => a.name.localeCompare(b.name, lang === 'ar' ? 'ar' : 'fr'))
     return result
-  }, [flow, parcels, registry, lang, lateDays, requestedSet])
+  }, [flow, parcels, registry, lang, lateDays, requestedSet, livriSet])
 
   const total = useMemo(
     () => groups.reduce((sum, group) => sum + group.codes.length, 0),

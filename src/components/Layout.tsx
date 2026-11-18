@@ -4,6 +4,7 @@ import {
   Archive,
   ArrowLeftRight,
   BadgeAlert,
+  Ban,
   BarChart3,
   BookOpen,
   Boxes,
@@ -63,6 +64,7 @@ export function Layout() {
   const secondary: NavItem[] = [
     { to: '/colisflow', label: t('nav.colisflow'), icon: Boxes },
     { to: '/colis-demande', label: t('nav.colisDemande'), icon: ClipboardList },
+    { to: '/livri', label: t('nav.livri'), icon: Ban },
     { to: '/late', label: t('nav.late'), icon: AlarmClock },
     { to: '/records', label: t('nav.records'), icon: ClipboardList },
     { to: '/blacklist', label: t('nav.blacklist'), icon: BadgeAlert },
@@ -257,6 +259,7 @@ export function MorePage() {
   const items = [
     { to: '/colisflow', label: t('nav.colisflow'), icon: Boxes, tone: 'indigo' },
     { to: '/colis-demande', label: t('nav.colisDemande'), icon: ClipboardList, tone: 'amber' },
+    { to: '/livri', label: t('nav.livri'), icon: Ban, tone: 'slate' },
     { to: '/late', label: t('late.title'), icon: AlarmClock, tone: 'red' },
     { to: '/records?tab=returned', label: t('returned.title'), icon: PackageCheck, tone: 'green' },
     { to: '/records?tab=remaining', label: t('remaining.title'), icon: ClipboardList, tone: 'amber' },

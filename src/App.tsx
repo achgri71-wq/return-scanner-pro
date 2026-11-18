@@ -12,6 +12,7 @@ import { ListsPage } from './pages/Lists'
 import { ListDetailPage } from './pages/ListDetail'
 import { ColisFlowPage } from './pages/ColisFlow'
 import { ColisDemandePage } from './pages/ColisDemande'
+import { LivriPage } from './pages/Livri'
 import { LateCodesPage } from './pages/LateCodes'
 import { ScanPage } from './pages/Scan'
 import { SearchPage } from './pages/Search'
@@ -79,6 +80,7 @@ export default function App() {
           <Route path="lists/:listId" element={<ListDetailPage />} />
           <Route path="colisflow" element={<ColisFlowPage />} />
           <Route path="colis-demande" element={<ColisDemandePage />} />
+          <Route path="livri" element={<LivriPage />} />
           <Route path="late" element={<LateCodesPage />} />
           <Route path="scan" element={<ScanPage />} />
           <Route path="search" element={<SearchPage />} />
