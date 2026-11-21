@@ -680,6 +680,8 @@ export const messages = {
   'late.movedToLivri': ['{code} déplacé vers Livri', 'تم نقل {code} إلى ليفري'],
   'late.alreadyInLivri': ['{code} est déjà dans Livri', '{code} موجود مسبقاً في ليفري'],
   'late.livriSaveFailed': ['Impossible de déplacer vers Livri.', 'تعذّر النقل إلى ليفري.'],
+  'late.multiHint': ['Collez plusieurs codes pour voir lesquels sont en retard.', 'الصق عدة أكواد لمعرفة أي منها متأخر.'],
+  'late.multiNotLate': ['Pas en retard', 'غير متأخر'],
   // @@END@@
 } as const satisfies Record<string, readonly [string, string]>
 

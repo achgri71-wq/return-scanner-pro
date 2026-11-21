@@ -5,6 +5,7 @@ import {
   Boxes,
   CheckSquare,
   ChevronDown,
+  ChevronRight,
   Copy,
   Inbox,
   ListChecks,
@@ -12,6 +13,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  Search,
   Square,
   Trash2,
   Truck,
@@ -28,11 +30,12 @@ import {
   type ReturnStatus,
 } from '../lib/flowLink'
 import { isFixedDistributor } from '../lib/fixedLists'
+import { parseCodeBlob } from '../lib/codes'
 import { loadRequestedCodes, saveRequestedCodes } from '../lib/colisDemande'
 import { loadLivriCodes, makeLivriCode, saveLivriCodes } from '../lib/livri'
 import { createLateMerge, loadLateMerges, saveLateMerges, type LateMerge } from '../lib/lateMerges'
 import { cx, formatDate, formatNumber, relativeTime } from '../lib/utils'
-import { Badge, ConfirmDialog, EmptyState, Modal, PageHeader, SearchField, StatCard } from '../components/ui'
+import { Badge, ConfirmDialog, EmptyState, Modal, PageHeader, SearchField, Segmented, StatCard } from '../components/ui'
 import { CodeRecordModal, type CodeHit } from '../components/CodeRecord'
 import { toast } from '../components/Toast'
 
@@ -121,7 +124,7 @@ function LateGroupCard({
   onCopy: (codes: LateCode[]) => void
   onDeleteCode: (group: LateGroup, code: LateCode) => void
   onDeleteGroup: (group: LateGroup) => void
-  onMoveToLivri: (group: LateGroup, code: LateCode) => void
+  onMoveToLivri: (code: LateCode) => void
   virtual?: boolean
   onRemoveVirtual?: () => void
   onRenameVirtual?: () => void
@@ -268,7 +271,7 @@ function LateGroupCard({
                 <button
                   type="button"
                   className="icon-btn late-livri-code"
-                  onClick={() => onMoveToLivri(group, item)}
+                  onClick={() => onMoveToLivri(item)}
                   title={t('late.moveToLivri')}
                   aria-label={t('late.moveToLivri')}
                 >
@@ -316,6 +319,9 @@ export function LateCodesPage() {
   const [requestedCodes, setRequestedCodes] = useState(() => loadRequestedCodes())
   const [livriCodes, setLivriCodes] = useState(() => loadLivriCodes())
   const [query, setQuery] = useState('')
+  const [mode, setMode] = useState<'single' | 'multi'>('single')
+  const [blob, setBlob] = useState('')
+  const [multiCodes, setMultiCodes] = useState<string[]>([])
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(() => new Set())
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set())
   const [savedMerges, setSavedMerges] = useState<LateMerge[]>(() => loadLateMerges())
@@ -445,6 +451,32 @@ export function LateCodesPage() {
     [groups],
   )
 
+  // Multi-search looks a code up in the very same late set the cards show, so
+  // merged lists and the Livri exclusion are respected automatically.
+  const lateByCode = useMemo(() => {
+    const map = new Map<string, LateCode & { group: string }>()
+    for (const group of groups) {
+      for (const item of group.codes) {
+        const key = item.code.toUpperCase()
+        if (!map.has(key)) map.set(key, { ...item, group: group.name })
+      }
+    }
+    return map
+  }, [groups])
+  const blobCodes = useMemo(() => parseCodeBlob(blob), [blob])
+  const multiResults = useMemo(() => {
+    const seen = new Set<string>()
+    const out: Array<{ key: string; code: string; late?: LateCode & { group: string } }> = []
+    for (const code of multiCodes) {
+      const key = code.toUpperCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push({ key, code, late: lateByCode.get(key) })
+    }
+    return out
+  }, [multiCodes, lateByCode])
+  const multiFound = multiResults.filter((item) => item.late).length
+
   const mergedSourceNames = useMemo(
     () => new Set(savedMerges.flatMap((merge) => merge.sourceNames.map((name) => name.trim().toLocaleLowerCase()))),
     [savedMerges],
@@ -525,9 +557,15 @@ export function LateCodesPage() {
     }
   }
 
+  const runMulti = () => setMultiCodes(parseCodeBlob(blob))
+  const clearMulti = () => {
+    setBlob('')
+    setMultiCodes([])
+  }
+
   // Moves one late code to the independent Livri list: Livri hides it from the
   // late notices, so the card above drops it on the next render.
-  const moveToLivri = (_group: LateGroup, code: LateCode) => {
+  const moveToLivri = (code: LateCode) => {
     const current = loadLivriCodes()
     const key = code.code.toUpperCase()
     if (current.some((item) => item.code.toUpperCase() === key)) {
@@ -720,6 +758,17 @@ export function LateCodesPage() {
         />
       </div>
 
+      <div className="search-mode-row">
+        <Segmented
+          value={mode}
+          options={[
+            { value: 'single', label: t('search.modeSingle') },
+            { value: 'multi', label: t('search.modeMulti') },
+          ]}
+          onChange={setMode}
+        />
+      </div>
+
       {!flow.length && !savedMerges.length ? (
         <EmptyState
           icon={Boxes}
@@ -740,6 +789,92 @@ export function LateCodesPage() {
             />
           ) : null}
 
+          {mode === 'multi' ? (
+            <div className="multi-search">
+              <p className="multi-hint">{t('late.multiHint')}</p>
+              <textarea
+                className="input textarea multi-input"
+                value={blob}
+                onChange={(event) => setBlob(event.target.value)}
+                placeholder={t('search.multiPlaceholder')}
+                spellCheck={false}
+                autoComplete="off"
+                rows={4}
+              />
+              <div className="multi-actions">
+                <button type="button" className="btn btn-primary" onClick={runMulti} disabled={!blobCodes.length}>
+                  <Search size={16} />
+                  {t('search.multiRun')}
+                </button>
+                {blob ? (
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={clearMulti}>
+                    <X size={15} />
+                    {t('search.multiReset')}
+                  </button>
+                ) : null}
+                <span className="multi-count">{t('search.multiCount', { count: blobCodes.length })}</span>
+              </div>
+
+              {multiResults.length ? (
+                <>
+                  <div className="results-head">
+                    <div>
+                      <h2>{t('search.multiResults')}</h2>
+                      <p>
+                        {t('search.multiFound', { count: multiFound })} · {t('search.multiMissing', { count: multiResults.length - multiFound })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="result-list">
+                    {multiResults.map((item) => (
+                      <div className="result-row" key={item.key}>
+                        <button
+                          type="button"
+                          className="result-code result-open"
+                          onClick={() => setSelected({
+                            code: item.code,
+                            listName: item.late?.group,
+                            date: item.late?.at,
+                            archived: false,
+                            inEntrepot: false,
+                          })}
+                          aria-label={item.code}
+                        >
+                          <span className="result-code-text"><strong className="mono">{item.code}</strong></span>
+                          <ChevronRight size={16} className="result-open-chevron" />
+                        </button>
+                        <div className="result-meta">
+                          {item.late ? (
+                            <>
+                              <Badge tone="accent" dot>{t('search.atDistributor', { name: item.late.group })}</Badge>
+                              <Badge tone="danger">{t('late.days', { count: item.late.days })}</Badge>
+                              <span className="result-date">{formatDate(item.late.at, lang)}</span>
+                            </>
+                          ) : (
+                            <Badge tone="muted">{t('late.multiNotLate')}</Badge>
+                          )}
+                        </div>
+                        {item.late ? (
+                          <button
+                            type="button"
+                            className="icon-btn late-livri-code"
+                            onClick={() => moveToLivri({ code: item.code, at: item.late!.at, days: item.late!.days })}
+                            title={t('late.moveToLivri')}
+                            aria-label={t('late.moveToLivri')}
+                          >
+                            <Ban size={14} />
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <EmptyState icon={Search} title={t('search.multiStart')} text={t('late.multiHint')} />
+              )}
+            </div>
+          ) : (
+            <>
           {!groups.length && !savedMerges.length ? (
             <EmptyState icon={Inbox} title={t('late.empty')} text={t('late.emptyText')} />
           ) : (
@@ -841,6 +976,8 @@ export function LateCodesPage() {
             </div>
           ) : (
             <EmptyState icon={Inbox} title={t('late.searchEmpty')} text={t('late.searchEmptyText')} />
+          )}
+            </>
           )}
             </>
           )}
